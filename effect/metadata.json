@@ -1,0 +1,18 @@
+{
+  "KPlugin": {
+    "Id": "kwin_natural_slide",
+    "Name": "Selective Panel Slide (Experimental)",
+    "Description": "Slide virtual desktops with selected Plasma panels; experimental, opt-in replacement for Slide",
+    "Authors": [{"Name": "Matt Hetherington"}],
+    "Website": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe",
+    "BugReportUrl": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe/issues",
+    "Icon": "preferences-desktop-virtual",
+    "Category": "Virtual Desktop Switching Animation",
+    "License": "GPL-2.0-or-later",
+    "EnabledByDefault": false,
+    "Version": "0.1.0"
+  },
+  "org.kde.kwin.effect": {
+    "exclusiveGroup": "desktop-animations"
+  }
+}

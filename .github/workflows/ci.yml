@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Matt Hetherington
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Portable core and tools
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  standalone:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+        widgets: ["ON", "OFF"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ clang libgl1-mesa-dev
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          cache: true
+      - name: Configure without private KWin dependencies
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_KWIN_EFFECT=OFF
+          -DBUILD_CONFIGURATOR=${{ matrix.widgets }}
+          -DBUILD_DIAGNOSTIC=${{ matrix.widgets }}
+      - run: cmake --build build --parallel 2
+      - run: ctest --test-dir build --output-on-failure
+      - run: git diff --check

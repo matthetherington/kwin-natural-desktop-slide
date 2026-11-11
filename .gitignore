@@ -1,0 +1,18 @@
+# Out-of-tree CMake builds and local presets
+/build*/
+/CMakeUserPresets.json
+/Testing/
+/stage/
+
+# Editors
+/.idea/
+/.vscode/
+*.swp
+*~
+
+# Local diagnostics may include window titles and display information
+/local/
+
+# Python helper/test caches
+__pycache__/
+*.pyc

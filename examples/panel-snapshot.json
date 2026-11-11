@@ -1,0 +1,30 @@
+[
+  {
+    "label": "Synthetic floating left panel",
+    "isPlasmaPanel": true,
+    "output": "eDP-1",
+    "geometry": [12, 100, 48, 800],
+    "outputGeometry": [0, 0, 1920, 1080]
+  },
+  {
+    "label": "Synthetic floating right panel",
+    "isPlasmaPanel": true,
+    "output": "eDP-1",
+    "geometry": [1860, 100, 48, 800],
+    "outputGeometry": [0, 0, 1920, 1080]
+  },
+  {
+    "label": "Synthetic bottom panel",
+    "isPlasmaPanel": true,
+    "output": "eDP-1",
+    "geometry": [100, 1020, 1720, 48],
+    "outputGeometry": [0, 0, 1920, 1080]
+  },
+  {
+    "label": "Synthetic non-panel window",
+    "isPlasmaPanel": false,
+    "output": "eDP-1",
+    "geometry": [12, 100, 48, 800],
+    "outputGeometry": [0, 0, 1920, 1080]
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "defaultAction": "fixed",
+  "rules": [
+    {
+      "name": "Built-in display left panel",
+      "output": "eDP-1",
+      "edge": "left",
+      "maxInset": 32,
+      "action": "slide"
+    },
+    {
+      "name": "Built-in display right panel",
+      "output": "eDP-1",
+      "edge": "right",
+      "maxInset": 32,
+      "action": "slide"
+    }
+  ]
+}
