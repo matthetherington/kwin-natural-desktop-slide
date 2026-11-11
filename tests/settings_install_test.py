@@ -61,9 +61,9 @@ class SettingsInstallTest(unittest.TestCase):
             self.assertFalse(second.exists())
 
     def make_layout(self, build, plugins="/usr/lib/x86_64-linux-gnu/qt6/plugins/kwin/effects"):
-        names = {"renderer": "kwin_natural_slide", "settings": "kwin_natural_slide_config",
-                 "controller": "kwin_natural_swipe_controller_test", "overscroll": "kwin_natural_slide_preview42",
-                 "probe": "kwin_natural_swipe_probe"}
+        names = {"renderer": "kwin_natural_desktop_slide", "settings": "kwin_natural_desktop_slide_config",
+                 "controller": "kwin_natural_desktop_slide_controller_devtest",
+                 "probe": "kwin_natural_desktop_slide_probe"}
         layout = {"schemaVersion": 1, "kwinVersion": "6.8.2", "pluginDirectory": plugins, "artifacts": []}
         for role, name in names.items():
             source = build / (name + ".so")
@@ -75,8 +75,8 @@ class SettingsInstallTest(unittest.TestCase):
 
     def test_modes_are_narrowly_scoped_without_rpm(self):
         modes = {"--probe-only": ["probe"], "--settings-only": ["settings"],
-                 "--controller-only": ["controller"], "--overscroll-preview": ["controller", "overscroll"],
-                 "--all": ["renderer", "settings", "controller", "overscroll"]}
+                 "--controller-only": ["controller"], "--runtime-only": ["controller", "renderer"],
+                 "--all": ["renderer", "settings", "controller"]}
         with tempfile.TemporaryDirectory() as directory:
             build = Path(directory)
             self.make_layout(build)
@@ -106,7 +106,7 @@ class SettingsInstallTest(unittest.TestCase):
                 root = Path(directory)
                 self.make_layout(root, prefix + "/kwin/effects")
                 artifacts = module.build_artifacts(root, ["settings", "renderer"], destdir=root / "stage")
-                self.assertEqual(artifacts[0][1], root / "stage" / prefix.lstrip("/") / "kwin/effects/configs/kwin_natural_slide_config.so")
+                self.assertEqual(artifacts[0][1], root / "stage" / prefix.lstrip("/") / "kwin/effects/configs/kwin_natural_desktop_slide_config.so")
                 module.install(artifacts)
                 self.assertTrue(all(destination.read_bytes() == b"mock plugin" for _, destination in artifacts))
 
@@ -114,7 +114,7 @@ class SettingsInstallTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             path, layout = self.make_layout(root)
-            for identity in ("../slide.so", "slide.so", "kwin_natural_slide.so/../slide.so"):
+            for identity in ("../slide.so", "slide.so", "kwin_natural_desktop_slide.so/../slide.so"):
                 layout["artifacts"][0]["name"] = identity
                 path.write_text(json.dumps(layout))
                 with self.assertRaisesRegex(RuntimeError, "Invalid plugin identity"):
@@ -133,15 +133,32 @@ class SettingsInstallTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "required components"):
                 module.build_artifacts(root, ["renderer"], config="Debug")
 
+    def test_integration_driver_is_never_installable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, layout = self.make_layout(root)
+            layout["integrationDriver"] = True
+            path.write_text(json.dumps(layout))
+            with self.assertRaisesRegex(RuntimeError, "must not be installed"):
+                module.build_artifacts(root, ["renderer"], destdir=root / "stage")
+
     def test_wrong_or_missing_kwin_version_is_refused(self):
         with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
-            for output in ("kwin 6.8.3", "kwin 6.7.0", "unrecognised", "kwin 6.8.2.1"):
+            for output in ("kwin 6.8.3", "kwin 6.6.0", "unrecognised", "kwin 6.8.2.1"):
                 with patch.object(module.subprocess, "check_output", return_value=output):
                     with self.assertRaisesRegex(RuntimeError, "pinned"):
                         module.check_installed_kwin()
         with patch.object(module.shutil, "which", return_value=None):
             with self.assertRaisesRegex(RuntimeError, "required"):
                 module.check_installed_kwin()
+
+    def test_reviewed_versions_still_require_exact_build_match(self):
+        with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
+            for version in module.SUPPORTED_KWIN_VERSIONS:
+                with patch.object(module.subprocess, "check_output", return_value="kwin " + version):
+                    module.check_installed_kwin(version)
+                    with self.assertRaisesRegex(RuntimeError, "exact KWin"):
+                        module.check_installed_kwin("6.99.0")
 
     def test_dry_run_does_not_write_and_staging_does_not_need_kwin(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -13,7 +13,7 @@ private Q_SLOTS:
         QPluginLoader loader(QStringLiteral(PROBE_PATH));
         const auto metadata = loader.metaData()["MetaData"].toObject();
         const auto plugin = metadata["KPlugin"].toObject();
-        QCOMPARE(plugin["Id"].toString(), QString("kwin_natural_swipe_probe"));
+        QCOMPARE(plugin["Id"].toString(), QString("kwin_natural_desktop_slide_probe"));
         QCOMPARE(plugin["EnabledByDefault"].toBool(true), false);
         QCOMPARE(plugin["Category"].toString(), QString("Tools"));
         QVERIFY(!metadata.contains("org.kde.kwin.effect"));

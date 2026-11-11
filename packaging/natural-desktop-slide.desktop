@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Matt Hetherington
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Desktop Entry]
+Type=Application
+Name=Natural Desktop Slide Settings
+Comment=Choose sliding panels and configure desktop gestures
+Exec=natural-desktop-slide-config
+Icon=preferences-desktop-virtual
+Categories=Settings;DesktopSettings;Qt;KDE;
+Terminal=false

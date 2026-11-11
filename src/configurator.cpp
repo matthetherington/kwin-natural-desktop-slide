@@ -35,7 +35,7 @@ class PanelConfigurator : public QWidget
 public:
     explicit PanelConfigurator(QString path) : m_path(std::move(path))
     {
-        setWindowTitle("Natural Swipe — Panels and gestures");
+        setWindowTitle("Natural Desktop Slide — Panels and gestures");
         auto outer = new QVBoxLayout(this);
         auto tabs = new QTabWidget;
         tabs->setObjectName("settingsTabs");
@@ -233,7 +233,7 @@ private:
     {
         QDBusInterface effects("org.kde.KWin", "/Effects", "org.kde.kwin.Effects");
         QStringList renderers;
-        const QRegularExpression pattern("^kwin_natural_slide(?:_preview[0-9]+)?$");
+        const QRegularExpression pattern("^kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?$");
         for (const auto &name : effects.property("loadedEffects").toStringList()) {
             if (pattern.match(name).hasMatch()) renderers.append(name);
         }
@@ -242,7 +242,7 @@ private:
                               "Stock Slide has not been changed.");
             return;
         }
-        QDBusInterface diagnostic("org.kde.KWin", "/org/kde/KWin/Effects/NaturalSwipe", "org.kde.KWin.NaturalSwipe");
+        QDBusInterface diagnostic("org.kde.KWin", "/org/kde/KWin/Effects/NaturalDesktopSlide", "org.kde.KWin.NaturalDesktopSlide");
         QDBusReply<QString> current = diagnostic.call("configurationStatus");
         if (!current.isValid()) {
             m_status->setText("Cannot verify the active effect's configuration path: " + current.error().message());

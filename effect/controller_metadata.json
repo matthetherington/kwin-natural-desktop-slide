@@ -1,11 +1,11 @@
 {
   "KPlugin": {
-    "Id": "kwin_natural_swipe_controller",
-    "Name": "Natural Swipe Controller (Experimental)",
-    "Description": "Opt-in three-finger gesture owner for one-display Slide testing; InputActions must be inactive if installed",
+    "Id": "kwin_natural_desktop_slide_controller",
+    "Name": "Natural Desktop Slide Controller (Experimental)",
+    "Description": "Opt-in three-finger gestures for shared or independent desktop outputs; InputActions must be inactive if installed",
     "Authors": [{"Name": "Matt Hetherington"}],
-    "Website": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe",
-    "BugReportUrl": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe/issues",
+    "Website": "https://github.com/matthetherington/kwin-natural-desktop-slide",
+    "BugReportUrl": "https://github.com/matthetherington/kwin-natural-desktop-slide/issues",
     "Icon": "preferences-desktop-virtual",
     "Category": "Tools",
     "License": "GPL-2.0-or-later",

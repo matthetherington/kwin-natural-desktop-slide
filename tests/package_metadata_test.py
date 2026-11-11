@@ -7,7 +7,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-URL = "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe"
+URL = "https://github.com/matthetherington/kwin-natural-desktop-slide"
 
 
 class PackageMetadataTest(unittest.TestCase):
@@ -25,6 +25,7 @@ class PackageMetadataTest(unittest.TestCase):
                 self.assertEqual(plugin["BugReportUrl"], URL + "/issues")
                 for field in ("Id", "Name", "Description", "Icon"):
                     self.assertTrue(plugin[field])
+                self.assertTrue(plugin["Name"].startswith("Natural Desktop Slide"))
                 self.assertNotIn(plugin["Id"], identities)
                 identities.add(plugin["Id"])
                 if path.parent.name == "effect":

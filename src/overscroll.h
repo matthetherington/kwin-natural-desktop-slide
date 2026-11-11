@@ -7,7 +7,7 @@
 
 namespace NaturalSwipe
 {
-inline constexpr double overscrollLimit = 0.2;
+inline constexpr double overscrollLimit = 0.1;
 
 inline double overscrollOffset(double displacement, double limit = overscrollLimit)
 {
@@ -17,7 +17,7 @@ inline double overscrollOffset(double displacement, double limit = overscrollLim
 }
 
 // Exposed strip only, in logical output coordinates. No actual desktop is
-// created: black comes from the scene clear, wallpaper is clipped to this gap.
+// created: the renderer fills a solid colour or clips adjacent wallpaper here.
 inline QRectF overscrollGap(double position, int columns, const QRectF &output, double limit = overscrollLimit)
 {
     if (!std::isfinite(position) || !std::isfinite(limit) || limit <= 0 || columns < 1 || output.isEmpty()) return {};

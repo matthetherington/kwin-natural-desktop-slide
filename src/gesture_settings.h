@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Matt Hetherington
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
+#include "overscroll.h"
 #include <QByteArray>
 #include <QJsonObject>
 #include <QString>
@@ -13,7 +14,7 @@ struct GestureSettings
     double distancePerDesktop = 300;
     double flickVelocity = 1;
     bool overscrollEnabled = true;
-    double overscrollLimit = 0.2;
+    double overscrollLimit = NaturalSwipe::overscrollLimit;
     QString overscrollBackground = QStringLiteral("black");
     QString overscrollColor = QStringLiteral("#000000");
     double settleSpeed = 1;

@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: 2026 Matt Hetherington
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Native packages and releases
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: python3 tests/release_tools_test.py
+      - name: Native target matrix
+        id: matrix
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          matrix = {'include': json.loads(Path('packaging/targets.json').read_text())}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              stream.write('value=' + json.dumps(matrix, separators=(',', ':')) + '\n')
+          PY
+      - name: Validate release versions and changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 tools/prepare-release.py --tag "$RELEASE_TAG" --output release-notes.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+
+  native:
+    needs: metadata
+    name: Package / ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.image }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.matrix) }}
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      DEBIAN_FRONTEND: noninteractive
+      PACKAGE_FORMAT: ${{ matrix.format }}
+    steps:
+      - name: Native SDK and packaging tools
+        shell: sh
+        run: |
+          if command -v dnf >/dev/null; then
+            dnf install -y git cmake ninja-build gcc-c++ python3 rpm-build \
+              kwin kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools \
+              extra-cmake-modules kf6-kcmutils-devel kf6-kcoreaddons-devel \
+              libepoxy-devel libdrm-devel vulkan-loader-devel wayland-devel libxkbcommon-devel libcap
+          elif command -v apt-get >/dev/null; then
+            apt-get update
+            apt-get install -y --no-install-recommends git ca-certificates cmake ninja-build g++ \
+              python3 dpkg-dev file kwin-dev kwin-wayland qt6-base-dev qt6-declarative-dev \
+              qt6-tools-dev-tools qdbus-qt6 extra-cmake-modules libkf6kcmutils-dev libkf6coreaddons-dev \
+              pkg-config libdrm-dev libepoxy-dev libwayland-dev libvulkan-dev libxkbcommon-dev libx11-dev libcap2-bin
+          else
+            pacman -Syu --noconfirm --needed git cmake ninja gcc python kwin extra-cmake-modules \
+              qt6-base qt6-declarative qt6-tools kcmutils kcoreaddons libarchive zstd \
+              pkgconf libdrm libepoxy wayland vulkan-headers vulkan-icd-loader libxkbcommon libcap ttf-dejavu
+          fi
+          # Some distros set CAP_SYS_NICE on KWin, which disposable containers
+          # cannot grant on exec. Only strip it from the container's copy, so
+          # the read-only --version check can run; never touch the host binary.
+          if command -v getcap >/dev/null && [ -n "$(getcap /usr/bin/kwin_wayland)" ]; then
+            setcap -r /usr/bin/kwin_wayland
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Configure matching production SDK
+        run: >-
+          cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_KWIN_EFFECT=ON
+          -DBUILD_DISTRIBUTION_PACKAGE=ON -DENABLE_INTEGRATION_DRIVER=OFF
+      - run: cmake --build build-package --parallel 2
+      - name: Test and package, with exact runtime dependency
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: python3 tools/build-package.py --build-dir build-package --target "$PACKAGE_TARGET"
+      - name: Inspect native package without installing/activating it
+        shell: sh
+        run: |
+          if [ "$PACKAGE_FORMAT" = rpm ]; then
+            rpm -qpl dist/*.rpm
+            rpm -qp --requires dist/*.rpm
+            rpm -qp --scripts dist/*.rpm
+          elif [ "$PACKAGE_FORMAT" = deb ]; then
+            dpkg-deb --contents dist/*.deb
+            dpkg-deb --info dist/*.deb
+          else
+            pacman -Qip dist/*.pkg.tar.zst
+          fi
+      - name: Install and smoke-test only inside the disposable CI container
+        shell: sh
+        run: |
+          if [ "$PACKAGE_FORMAT" = rpm ]; then
+            # CI-only: this locally built artifact is signed later in the
+            # privileged release job. Keep all dependency checks enabled.
+            rpm --define '_pkgverify_level digest' -Uvh dist/*.rpm
+          elif [ "$PACKAGE_FORMAT" = deb ]; then
+            dpkg -i dist/*.deb
+          else
+            pacman -U --noconfirm dist/*.pkg.tar.zst
+          fi
+          natural-desktop-slide-session --help
+          natural-desktop-slide-diagnostic --help
+          QT_QPA_PLATFORM=offscreen natural-desktop-slide-config --help
+      - name: Upload tested package, checksum and build manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [metadata, native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-notes
+          path: notes
+      - name: Verify complete release matrix and publish tested assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+          RPM_SIGNING_FINGERPRINT: ${{ vars.RPM_SIGNING_FINGERPRINT }}
+        run: |
+          python3 tools/verify-release-assets.py --directory dist --version "${RELEASE_TAG#v}"
+          sudo apt-get update
+          sudo apt-get install -y rpm gnupg
+          python3 tools/sign-release.py --directory dist
+          python3 tools/verify-release-assets.py --directory dist --version "${RELEASE_TAG#v}" --require-rpm-signature
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('notes/release-notes.md')
+          p.write_text(p.read_text() + '\nRPM signing key fingerprint: `' + os.environ['RPM_SIGNING_FINGERPRINT'].upper() + '`.\n')
+          PY
+          gh release create "$RELEASE_TAG" --verify-tag --title "Natural Desktop Slide ${RELEASE_TAG#v}" \
+            --notes-file notes/release-notes.md dist/*

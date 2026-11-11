@@ -12,23 +12,23 @@ import shutil
 import subprocess
 import sys
 
-CUSTOM = "kwin_natural_slide"
+CUSTOM = "kwin_natural_desktop_slide"
 STOCK = "slide"
-CONTROLLER_BASE = "kwin_natural_swipe_controller"
+CONTROLLER_BASE = "kwin_natural_desktop_slide_controller"
 _manifest = Path(__file__).resolve().parents[1] / "build-controller/effect/controller-plugin-id.txt"
 CONTROLLER = _manifest.read_text().strip() if _manifest.exists() else CONTROLLER_BASE
-if not re.fullmatch(r"kwin_natural_swipe_controller(?:_[a-zA-Z0-9]+)?", CONTROLLER):
+if not re.fullmatch(r"kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?", CONTROLLER):
     raise RuntimeError("Invalid controller identity in build manifest")
 INPUTACTIONS = "kwin_gestures"
 ROOT = Path(__file__).resolve().parents[1]
-_preview_manifest = ROOT / "build-controller/effect/overscroll-renderer-plugin-id.txt"
-PREVIEW = _preview_manifest.read_text().strip() if _preview_manifest.exists() else "kwin_natural_slide_preview1"
-if not re.fullmatch(r"kwin_natural_slide_preview[0-9]+", PREVIEW):
+_preview_manifest = ROOT / "build-controller/effect/renderer-plugin-id.txt"
+PREVIEW = _preview_manifest.read_text().strip() if _preview_manifest.exists() else CUSTOM
+if not re.fullmatch(r"kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?", PREVIEW):
     raise RuntimeError("Invalid preview renderer identity in build manifest")
 
 
 class SessionEffects:
-    preview_state = ROOT / "local/controller-session/overscroll-renderer-session.json"
+    preview_state = ROOT / "local/session/renderer-session.json"
     def __init__(self, runner=subprocess.run):
         self.runner = runner
         # Debian/Ubuntu also ship the un-suffixed executable outside PATH.
@@ -63,10 +63,10 @@ class SessionEffects:
 
     def preview_names(self):
         return sorted({PREVIEW} | {name for name in self.call("listOfEffects").splitlines()
-                                   if re.fullmatch(r"kwin_natural_slide_preview[0-9]+", name)})
+                                   if re.fullmatch(r"kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?", name)})
 
     def loaded_renderers(self):
-        return [name for name in [STOCK, CUSTOM, *self.preview_names()] if self.loaded(name)]
+        return [name for name in dict.fromkeys([STOCK, CUSTOM, *self.preview_names()]) if self.loaded(name)]
 
     def preview_baseline(self):
         if self.preview_state is None:
@@ -128,7 +128,7 @@ class SessionEffects:
     def controller_names(self):
         names = {CONTROLLER_BASE, CONTROLLER}
         names.update(name for name in self.call("listOfEffects").splitlines()
-                     if re.fullmatch(r"kwin_natural_swipe_controller(?:_[a-zA-Z0-9]+)?", name))
+                     if re.fullmatch(r"kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?", name))
         return sorted(names)
 
     def any_controller_loaded(self):
@@ -179,8 +179,8 @@ class SessionEffects:
             raise RuntimeError("Unknown overscroll background")
         if self.loaded_renderers() != [PREVIEW]:
             raise RuntimeError("Expected the current development preview renderer alone")
-        result = self.runner([self.qdbus, "org.kde.KWin", "/org/kde/KWin/Effects/NaturalSwipe",
-                              "org.kde.KWin.NaturalSwipe.setOverscrollMode", mode],
+        result = self.runner([self.qdbus, "org.kde.KWin", "/org/kde/KWin/Effects/NaturalDesktopSlide",
+                              "org.kde.KWin.NaturalDesktopSlide.setOverscrollMode", mode],
                              check=True, capture_output=True, text=True, timeout=15)
         if result.stdout.strip() != "true":
             raise RuntimeError("Renderer refused the mode change; lift fingers and wait until settled")
@@ -203,11 +203,12 @@ class SessionEffects:
             stream.flush()
             os.fsync(stream.fileno())
         try:
-            self.call("unloadEffect", renderers[0])
-            if self.loaded(renderers[0]):
-                raise RuntimeError("Original renderer did not unload")
-            if self.call("loadEffect", PREVIEW) != "true" or self.loaded_renderers() != [PREVIEW]:
-                raise RuntimeError("Preview renderer did not load alone")
+            if renderers[0] != PREVIEW:
+                self.call("unloadEffect", renderers[0])
+                if self.loaded(renderers[0]):
+                    raise RuntimeError("Original renderer did not unload")
+                if self.call("loadEffect", PREVIEW) != "true" or self.loaded_renderers() != [PREVIEW]:
+                    raise RuntimeError("Renderer did not load alone")
             if mode is not None:
                 self.preview_mode(mode)
             self.controller_enable()
@@ -223,14 +224,14 @@ class SessionEffects:
         original = baseline["renderer"] if baseline else None
         restore_inputactions = baseline.get("inputActions", True) if baseline else None
         previews = [name for name in self.preview_names() if self.loaded(name)]
-        if previews and original is None:
-            raise RuntimeError("Missing preview restore baseline; use emergency rollback for stock Slide")
         if baseline is None:
-            if self.any_controller_loaded():
-                raise RuntimeError("Missing preview restore baseline; use controller-rollback for a controller-only session")
+            if self.any_controller_loaded() or any(name != CUSTOM for name in previews):
+                raise RuntimeError("Missing preview restore baseline; use emergency rollback for stock Slide")
             return # Idempotence must not enable an unrelated, inactive plugin.
         self.controller_rollback(restore_inputactions=restore_inputactions)
         for name in previews:
+            if name == original:
+                continue # The renderer was already selected before controller activation.
             self.call("unloadEffect", name)
             if self.loaded(name):
                 raise RuntimeError("Preview renderer is still loaded; refusing a competing renderer")
@@ -246,7 +247,7 @@ class SessionEffects:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["status", "enable", "rollback", "controller-enable", "controller-rollback",
+    parser.add_argument("action", choices=["status", "start", "stop", "enable", "rollback", "controller-enable", "controller-rollback",
                                           "overscroll-enable", "overscroll-rollback", "overscroll-mode"])
     parser.add_argument("--background", choices=["black", "wallpaper"],
                         help="Temporary comparison override; enabling without this uses saved settings.")
@@ -256,8 +257,8 @@ def main():
         if args.build_dir is not None:
             global CONTROLLER, PREVIEW
             controller = (args.build_dir / "effect/controller-plugin-id.txt").read_text().strip()
-            preview = (args.build_dir / "effect/overscroll-renderer-plugin-id.txt").read_text().strip()
-            if not re.fullmatch(r"kwin_natural_swipe_controller(?:_[a-zA-Z0-9]+)?", controller) or not re.fullmatch(r"kwin_natural_slide_preview[0-9]+", preview):
+            preview = (args.build_dir / "effect/renderer-plugin-id.txt").read_text().strip()
+            if not re.fullmatch(r"kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?", controller) or not re.fullmatch(r"kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?", preview):
                 raise RuntimeError("Invalid controller/renderer build identities")
             CONTROLLER, PREVIEW = controller, preview
         effects = SessionEffects()
@@ -273,10 +274,10 @@ def main():
         elif args.action == "controller-rollback":
             effects.controller_rollback()
             print("Controller unloaded; previous gesture handling restored. Renderer/startup settings unchanged.")
-        elif args.action == "overscroll-enable":
+        elif args.action in ("start", "overscroll-enable"):
             effects.preview_enable(args.background)
-            print("Overscroll preview/controller enabled for this session; original renderer saved for recovery.")
-        elif args.action == "overscroll-rollback":
+            print("Natural Desktop Slide renderer/controller enabled; original renderer saved for recovery.")
+        elif args.action in ("stop", "overscroll-rollback"):
             effects.preview_rollback()
             print("Original renderer and gesture handling restored; overscroll preview/controller unloaded.")
         elif args.action == "overscroll-mode":

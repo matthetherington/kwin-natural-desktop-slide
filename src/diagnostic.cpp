@@ -77,7 +77,7 @@ int discover(QTextStream &out, QTextStream &err)
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    app.setApplicationName("natural-swipe-diagnostic");
+    app.setApplicationName("natural-desktop-slide-diagnostic");
     QCommandLineParser parser;
     parser.setApplicationDescription("Read-only panel discovery, config validation and snapshot rule evaluation.");
     parser.addHelpOption();

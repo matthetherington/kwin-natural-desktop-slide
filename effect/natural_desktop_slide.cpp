@@ -10,7 +10,8 @@
     diagnostics, fixed wallpaper/gap defaults, RAII screen ownership, and
     selective dock translation/elevation. See docs/UPSTREAM.md.
 */
-#include "natural_slide.h"
+#include "natural_desktop_slide.h"
+#include "compat/runtime_version.h"
 #include "window_adapter.h"
 #include "overscroll.h"
 #include "core/output.h"
@@ -24,6 +25,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QScopedValueRollback>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -32,7 +34,7 @@ namespace KWin
 {
 namespace
 {
-constexpr auto dbusPath = "/org/kde/KWin/Effects/NaturalSwipe";
+constexpr auto dbusPath = "/org/kde/KWin/Effects/NaturalDesktopSlide";
 NaturalSwipe::PanelInfo panelInfo(const EffectWindow *window)
 {
     if (!window->screen() || !window->window()) return {};
@@ -73,13 +75,22 @@ NaturalSlideEffect::NaturalSlideEffect()
     });
     connect(effects, &EffectsHandler::desktopAdded, this, &NaturalSlideEffect::finishedSwitching);
     connect(effects, &EffectsHandler::desktopRemoved, this, &NaturalSlideEffect::finishedSwitching);
-    connect(effects, &EffectsHandler::screenAdded, this, &NaturalSlideEffect::finishedSwitching);
+    const auto watchOutput = [this](LogicalOutput *output) {
+        connect(output, &LogicalOutput::aboutToChange, this, [this]() { finishedSwitching(); });
+        connect(output, &LogicalOutput::geometryChanged, this, &NaturalSlideEffect::finishedSwitching);
+        connect(output, &LogicalOutput::scaleChanged, this, &NaturalSlideEffect::finishedSwitching);
+    };
+    for (auto output : effects->screens()) watchOutput(output);
+    connect(effects, &EffectsHandler::screenAdded, this, [this, watchOutput](LogicalOutput *output) {
+        finishedSwitching();
+        watchOutput(output);
+    });
     connect(effects, &EffectsHandler::screenRemoved, this, [this](LogicalOutput *) { finishedSwitching(); });
     connect(effects, &EffectsHandler::currentActivityAboutToChange, this, [this]() { m_switchingActivity = true; });
     connect(effects, &EffectsHandler::currentActivityChanged, this, [this]() { m_switchingActivity = false; });
     m_dbusRegistered = QDBusConnection::sessionBus().registerObject(
         QString::fromLatin1(dbusPath), this, QDBusConnection::ExportScriptableSlots);
-    if (!m_dbusRegistered) qWarning() << "Natural Swipe: could not register diagnostics D-Bus object";
+    if (!m_dbusRegistered) qWarning() << "Natural Desktop Slide: could not register diagnostics D-Bus object";
 }
 
 NaturalSlideEffect::~NaturalSlideEffect()
@@ -91,11 +102,7 @@ bool NaturalSlideEffect::supported()
 {
     // The configurable solid gap uses GL shaders/VBOs. Refuse software/QPainter
     // compositors instead of advertising support and dereferencing a GL context.
-#ifdef NATURAL_SWIPE_OVERSCROLL_PREVIEW
-    return effects->animationsSupported() && effects->isOpenGLCompositing();
-#else
-    return effects->animationsSupported();
-#endif
+    return NaturalSwipe::runtimeMatchesBuild() && effects->animationsSupported() && effects->isOpenGLCompositing();
 }
 
 bool NaturalSlideEffect::overscrollEnabled() const
@@ -105,11 +112,7 @@ bool NaturalSlideEffect::overscrollEnabled() const
 
 bool NaturalSlideEffect::overscrollSupported() const
 {
-#ifdef NATURAL_SWIPE_OVERSCROLL_PREVIEW
     return true;
-#else
-    return false;
-#endif
 }
 
 QString NaturalSlideEffect::overscrollMode() const
@@ -126,7 +129,7 @@ double NaturalSlideEffect::settlingSpeed(bool returning) const
 void NaturalSlideEffect::loadGestureSettings()
 {
     if (!m_gestureSettings.loadFile(m_gesturePath, &m_gestureError)) {
-        qWarning().noquote() << "Natural Swipe: retaining previous gesture settings:" << m_gestureError;
+        qWarning().noquote() << "Natural Desktop Slide: retaining previous gesture settings:" << m_gestureError;
     } else {
         m_overscrollMode.clear();
     }
@@ -135,8 +138,7 @@ void NaturalSlideEffect::loadGestureSettings()
 
 bool NaturalSlideEffect::setOverscrollMode(const QString &mode)
 {
-    // Temporary preview only. Do not change the running transition or persist
-    // settings. The normal renderer always refuses this experimental control.
+    // Idle-only comparison control; normal changes use the saved settings UI.
     if (!overscrollEnabled() || isActive() || (mode != "black" && mode != "wallpaper")) return false;
     m_overscrollMode = mode;
     effects->addRepaintFull();
@@ -147,7 +149,7 @@ void NaturalSlideEffect::reconfigure(ReconfigureFlags)
 {
     // Decisions and elevation remain frozen until the current transition ends.
     if (!m_config.loadFile(m_configPath, &m_configError)) {
-        qWarning().noquote() << "Natural Swipe: retaining previous rules:" << m_configError;
+        qWarning().noquote() << "Natural Desktop Slide: retaining previous rules:" << m_configError;
     }
     if (isActive()) m_gestureReloadPending = true;
     else loadGestureSettings();
@@ -163,14 +165,23 @@ bool NaturalSlideEffect::shouldSlidePanel(const EffectWindow *window) const
 }
 QString NaturalSlideEffect::configurationStatus() const
 {
+    QJsonArray outputs;
+    for (const auto &[output, screen] : m_screens) {
+        auto state = screen->status();
+        state["output"] = output->name();
+        outputs.append(state);
+    }
     return QString::fromUtf8(QJsonDocument(QJsonObject{
         {"path", m_configPath}, {"error", m_configError},
         {"ruleCount", static_cast<qint64>(m_config.rules().size())},
-        {"defaultAction", "fixed"}, {"overscrollPreview", overscrollSupported()},
+        {"defaultAction", "fixed"}, {"overscrollSupported", overscrollSupported()},
         {"overscrollEnabled", overscrollEnabled()},
         {"overscrollMode", overscrollEnabled() ? overscrollMode() : QStringLiteral("disabled")},
         {"gesturePath", m_gesturePath}, {"gestureError", m_gestureError},
         {"settingsDeferred", m_gestureReloadPending},
+        {"continuousGestureHandover", true},
+        {"multiOutputGestures", true},
+        {"outputs", outputs},
         {"gestureSettings", NaturalSwipe::gestureSettingsJson(gestureSettings())}}).toJson());
 }
 QString NaturalSlideEffect::panelSnapshot() const
@@ -217,7 +228,6 @@ void NaturalSlideEffect::desktopChanged(VirtualDesktop *old, VirtualDesktop *cur
         }
     }
     ensureScreen(output).desktopChanged(old, current, with);
-    m_releaseFlick = false;
     effects->setActiveFullScreenEffect(this);
 }
 void NaturalSlideEffect::desktopChanging(VirtualDesktop *old, QPointF offset, EffectWindow *with, LogicalOutput *output)
@@ -243,11 +253,29 @@ void NaturalSlideEffect::prePaintWindow(RenderView *view, EffectWindow *window, 
     data.setTransformed();
     effects->prePaintWindow(view, window, data);
 }
-bool NaturalSlideEffect::paintWindow(const RenderTarget &target, const RenderViewport &viewport, EffectWindow *window,
-                                    int mask, const Region &region, WindowPaintData &data)
+NaturalSlidePaintResult NaturalSlideEffect::paintWindow(const RenderTarget &target, const RenderViewport &viewport, EffectWindow *window,
+                                     int mask, const Region &region, WindowPaintData &data)
 {
-    if (auto screen = screenState(window->screen())) return screen->paintWindow(target, viewport, window, mask, region, data);
-    return effects->paintWindow(target, viewport, window, mask, region, data);
+    return NaturalSwipe::paintResult<NaturalSlidePaintResult>([&]() {
+        if (auto screen = screenState(m_paintOutput); screen && screen->isActive())
+            return screen->paintWindow(target, viewport, window, mask, region, data);
+        // References held for another output must not reveal inactive desktops.
+        if (m_paintOutput && !window->isOnCurrentDesktop()) return true;
+        return NaturalSwipe::paintSucceeded([&]() { return effects->paintWindow(target, viewport, window, mask, region, data); });
+    });
+}
+NaturalSlidePaintResult NaturalSlideEffect::paintScreen(const RenderTarget &target, const RenderViewport &viewport,
+                                    int mask, const Region &region, LogicalOutput *output)
+{
+    const QScopedValueRollback<LogicalOutput *> scopedOutput(m_paintOutput, output);
+    return NaturalSwipe::paintResult<NaturalSlidePaintResult>([&]() { return effects->paintScreen(target, viewport, mask, region, output); });
+}
+void NaturalSlideEffect::cancelGestureForOutput(const QString &outputName)
+{
+    if (effects->activeFullScreenEffect() != this) return;
+    for (auto &[output, screen] : m_screens) {
+        if (output->name() == outputName) screen->desktopChangingCancelled();
+    }
 }
 void NaturalSlideEffect::postPaintScreen()
 {
@@ -262,6 +290,7 @@ void NaturalSlideEffect::postPaintScreen()
 void NaturalSlideEffect::finishedSwitching()
 {
     m_screens.clear();
+    m_releaseFlick = false;
     // Never clear another fullscreen effect's state when unloaded while idle.
     if (effects->activeFullScreenEffect() == this) {
         for (const auto window : effects->stackingOrder()) {
@@ -281,6 +310,12 @@ NaturalSlideScreen::NaturalSlideScreen(NaturalSlideEffect *parent, LogicalOutput
 }
 NaturalSlideScreen::~NaturalSlideScreen() { finishedSwitching(); }
 bool NaturalSlideScreen::isActive() const { return m_state != State::Inactive; }
+QJsonObject NaturalSlideScreen::status() const
+{
+    const auto position = m_state == State::ActiveAnimation ? animationPosition() : m_gesturePos;
+    return {{"active", isActive()}, {"gesture", m_state == State::ActiveGesture},
+            {"position", QJsonArray{position.x(), position.y()}}, {"windowPaints", qint64(m_windowPaints)}};
+}
 void NaturalSlideScreen::prePaintScreen(ScreenPrePaintData &data)
 {
     if (!isActive()) return;
@@ -329,8 +364,11 @@ bool NaturalSlideScreen::willBePainted(const EffectWindow *window) const
 bool NaturalSlideScreen::paintWindow(const RenderTarget &target, const RenderViewport &viewport, EffectWindow *window,
                                     int mask, const Region &region, WindowPaintData &data)
 {
+    // Never translate another output's wallpaper/panel into this viewport.
+    if (!window->frameGeometry().intersects(m_screen->geometry())) return true;
     if (!willBePainted(window)) return true;
-    if (!isTranslated(window)) return effects->paintWindow(target, viewport, window, mask, region, data);
+    if (!isTranslated(window)) return NaturalSwipe::paintSucceeded([&]() { return effects->paintWindow(target, viewport, window, mask, region, data); });
+    ++m_windowPaints;
     const bool wrap = effects->optionRollOverDesktops();
     QPointF position = m_parent->overscrollEnabled() && !wrap ? m_position : forcePositivePosition(m_position);
     if (wrap) position = constrainToDrawableRange(position);
@@ -350,7 +388,7 @@ bool NaturalSlideScreen::paintWindow(const RenderTarget &target, const RenderVie
             if (m_parent->wallpaperOverscroll()) {
                 WindowPaintData adjacent(data);
                 adjacent += QPointF(NaturalSwipe::overscrollWallpaperOffset(position.x(), width, area.width(), m_settings.overscrollLimit), 0);
-                if (!effects->paintWindow(target, viewport, window, mask, clipped, adjacent)) return false;
+                if (!NaturalSwipe::paintSucceeded([&]() { return effects->paintWindow(target, viewport, window, mask, clipped, adjacent); })) return false;
             } else {
                 // Paint at wallpaper depth, so fixed panels and windows remain
                 // above the gap. Use the transition's frozen settings snapshot.
@@ -370,23 +408,20 @@ bool NaturalSlideScreen::paintWindow(const RenderTarget &target, const RenderVie
             }
         }
     }
-    const bool panel = slidesPanel(window);
     for (const auto desktop : std::as_const(m_visibleDesktops)) {
         if (!window->isOnDesktop(desktop)) continue;
         const QPoint coords = effects->desktopGridCoords(desktop);
         QPointF translation = QPointF(coords) - position;
         if (coords.x() == 0 && wrapX) translation.rx() += width;
         if (coords.y() == 0 && wrapY) translation.ry() += height;
-        for (auto output : effects->screens()) {
-            // A panel belongs to one output, never copy it onto another monitor.
-            if (panel && output != m_screen) continue;
-            const Rect area = output->geometry();
+        {
+            const Rect area = m_screen->geometry();
             const QPoint offset(translation.x() * area.width(), translation.y() * area.height());
             WindowPaintData copy(data);
             copy += offset;
             const Rect damage = area.translated(offset).intersected(area);
-            if (!effects->paintWindow(target, viewport, window, mask,
-                region.intersected(viewport.mapToDeviceCoordinatesAligned(damage)), copy)) return false;
+            if (!NaturalSwipe::paintSucceeded([&]() { return effects->paintWindow(target, viewport, window, mask,
+                region.intersected(viewport.mapToDeviceCoordinatesAligned(damage)), copy); })) return false;
         }
     }
     return true;
@@ -397,10 +432,10 @@ void NaturalSlideScreen::postPaintScreen()
 }
 void NaturalSlideScreen::windowAdded(EffectWindow *window)
 {
-    if (!isActive() || window->screen() != m_screen) return;
-    const bool slide = m_parent->shouldSlidePanel(window);
+    if (!isActive() || !window->frameGeometry().intersects(m_screen->geometry())) return;
+    const bool slide = window->screen() == m_screen && m_parent->shouldSlidePanel(window);
     m_windows.insert(window, {EffectWindowVisibleRef(window, EffectWindow::PAINT_DISABLED_BY_DESKTOP), slide});
-    if (window->isDock() && !slide) {
+    if (window->isDock() && window->screen() == m_screen && !slide) {
         effects->setElevatedWindow(window, true);
         m_elevated.append(window);
     }
@@ -423,11 +458,19 @@ void NaturalSlideScreen::finishedSwitching()
     m_elevated.clear();
     m_windows.clear();
     m_movingWindow = nullptr;
+    m_handover.reset();
     m_state = State::Inactive;
 }
 void NaturalSlideScreen::startAnimation(QPointF oldPosition, VirtualDesktop *current, EffectWindow *moving, bool returning)
 {
     if (!isActive()) prepareSwitching();
+    if (m_state == State::ActiveGesture) {
+        // Once fingers own the position, momentum from an earlier interrupted
+        // spring is stale. Do not reintroduce it when this gesture releases.
+        m_motionX.setVelocity(0);
+        m_motionY.setVelocity(0);
+    }
+    m_handover.reset();
     m_state = State::ActiveAnimation;
     m_movingWindow = moving;
     m_startPos = oldPosition;
@@ -447,32 +490,45 @@ void NaturalSlideScreen::desktopChanged(VirtualDesktop *old, VirtualDesktop *cur
     QPointF previous;
     if (m_state == State::Inactive) previous = effects->desktopGridCoords(old);
     else if (m_state == State::ActiveGesture) previous = m_gesturePos;
-    else {
-        const QSize size = effects->virtualScreenSize();
-        previous = {m_motionX.position() / size.width(), m_motionY.position() / size.height()};
-    }
+    else previous = animationPosition();
     startAnimation(previous, current, with);
 }
 void NaturalSlideScreen::desktopChanging(VirtualDesktop *old, QPointF offset, EffectWindow *with)
 {
+    // Capture the rendered spring position BEFORE replacing its state. Also
+    // works when release and takeover arrive before another paint frame.
+    const auto inherited = m_state == State::ActiveAnimation
+        ? std::optional<QPointF>(animationPosition()) : std::nullopt;
     if (!isActive()) prepareSwitching();
     m_state = State::ActiveGesture;
     m_movingWindow = with;
-    m_gesturePos = QPointF(effects->desktopGridCoords(old)) + offset;
-    if (effects->optionRollOverDesktops()) {
-        m_gesturePos = forcePositivePosition(m_gesturePos);
-    } else if (m_parent->overscrollEnabled()) {
-        m_gesturePos = {std::clamp(m_gesturePos.x(), -m_settings.overscrollLimit,
-                                     effects->desktopGridWidth() - 1 + m_settings.overscrollLimit),
-                        std::clamp(m_gesturePos.y(), 0.0, double(effects->desktopGridHeight() - 1))};
-    } else {
-        m_gesturePos = moveInsideDesktopGrid(m_gesturePos);
-    }
+    m_gesturePos = constrainGesturePosition(m_handover.update(
+        QPointF(effects->desktopGridCoords(old)), offset, inherited));
     effects->addRepaint(m_screen->geometry());
+}
+QPointF NaturalSlideScreen::animationPosition() const
+{
+    const QSize size = effects->virtualScreenSize();
+    if (size.isEmpty()) return m_position;
+    return constrainGesturePosition({m_motionX.position() / size.width(), m_motionY.position() / size.height()});
+}
+QPointF NaturalSlideScreen::constrainGesturePosition(QPointF position) const
+{
+    if (effects->optionRollOverDesktops()) {
+        return forcePositivePosition(position);
+    } else if (m_parent->overscrollEnabled()) {
+        return {std::clamp(position.x(), -m_settings.overscrollLimit,
+                                      effects->desktopGridWidth() - 1 + m_settings.overscrollLimit),
+                std::clamp(position.y(), 0.0, double(effects->desktopGridHeight() - 1))};
+    } else {
+        return moveInsideDesktopGrid(position);
+    }
 }
 void NaturalSlideScreen::desktopChangingCancelled()
 {
-    if (isActive()) startAnimation(m_gesturePos, effects->currentDesktop(m_screen), nullptr, true);
+    if (!isActive()) return;
+    const auto position = m_state == State::ActiveGesture ? m_gesturePos : animationPosition();
+    startAnimation(position, effects->currentDesktop(m_screen), nullptr, true);
 }
 QPointF NaturalSlideScreen::forcePositivePosition(QPointF position) const
 {

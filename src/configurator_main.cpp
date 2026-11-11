@@ -12,7 +12,8 @@ int main(int argc, char **argv)
     QApplication app(argc, argv);
     // The picker temporarily hides its only window while waiting for KWin.
     app.setQuitOnLastWindowClosed(false);
-    app.setApplicationName("natural-swipe-config");
+    app.setApplicationName("natural-desktop-slide-config");
+    app.setApplicationDisplayName("Natural Desktop Slide");
     QCommandLineParser parser;
     parser.setApplicationDescription("Click a Plasma panel to configure selective desktop sliding. Never enables an effect automatically.");
     parser.addHelpOption();

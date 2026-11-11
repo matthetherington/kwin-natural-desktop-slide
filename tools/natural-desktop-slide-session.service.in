@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Matt Hetherington
 # SPDX-License-Identifier: GPL-2.0-or-later
+# Installed as natural-desktop-slide-session.service.
 [Unit]
-Description=Natural Swipe renderer and gesture handoff
+Description=Natural Desktop Slide renderer and gesture handoff
 After=plasma-kwin_wayland.service
 PartOf=graphical-session.target
 ConditionEnvironment=XDG_SESSION_TYPE=wayland

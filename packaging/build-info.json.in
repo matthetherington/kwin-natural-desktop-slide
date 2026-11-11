@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "version": "@PROJECT_VERSION@",
+  "kwinVersion": "@NDS_KWIN_VERSION@",
+  "rendererId": "kwin_natural_desktop_slide",
+  "controllerId": "kwin_natural_desktop_slide_controller",
+  "integrationDriver": false
+}

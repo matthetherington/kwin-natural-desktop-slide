@@ -31,3 +31,51 @@ jobs:
       - run: cmake --build build --parallel 2
       - run: ctest --test-dir build --output-on-failure
       - run: git diff --check
+
+  distribution-core:
+    name: Core / ${{ matrix.image }} / ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.image }}
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        image: [debian:13, fedora:45]
+    steps:
+      - name: Native distribution dependencies
+        shell: sh
+        run: |
+          if command -v apt-get >/dev/null; then
+            apt-get update
+            apt-get install -y git cmake ninja-build g++ qt6-base-dev libgl1-mesa-dev python3
+          else
+            dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel mesa-libGL-devel python3
+          fi
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=OFF
+      - run: cmake --build build --parallel 2
+      - run: ctest --test-dir build --output-on-failure
+
+  fedora-effect:
+    name: Native effect / Fedora 45 / x86_64
+    runs-on: ubuntu-24.04
+    container: fedora:45
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    steps:
+      - name: Matching distribution SDK
+        run: >-
+          dnf install -y git cmake ninja-build gcc-c++ python3
+          kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel extra-cmake-modules
+          kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel
+          vulkan-loader-devel wayland-devel libxkbcommon-devel
+      - uses: actions/checkout@v4
+      # Fail on an unreviewed SDK update; never widen the ABI policy automatically.
+      - run: cmake -S . -B build-effect -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=ON
+      - run: cmake --build build-effect --parallel 2
+      - run: ctest --test-dir build-effect --output-on-failure

@@ -103,7 +103,7 @@ private Q_SLOTS:
         auto save = widget->findChild<QPushButton *>("saveGestureSettings");
         QVERIFY(threshold && limit && flick && background && save);
         QCOMPARE(threshold->value(), 30.0);
-        QCOMPARE(limit->value(), 20.0);
+        QCOMPARE(limit->value(), 10.0);
         QCOMPARE(flick->value(), 1.0);
         QCOMPARE(background->currentData().toString(), QString("black"));
         QVERIFY(!QFile::exists(dir.filePath("gestures.json")));
@@ -123,6 +123,7 @@ private Q_SLOTS:
         auto defaults = widget->findChild<QPushButton *>("restoreGestureDefaults");
         defaults->click();
         QCOMPARE(threshold->value(), 30.0);
+        QCOMPARE(limit->value(), 10.0);
         QVERIFY(store.loadFile(dir.filePath("gestures.json")));
         QCOMPARE(store.settings().slowSwipeThreshold, 0.4); // Restore stages only.
     }

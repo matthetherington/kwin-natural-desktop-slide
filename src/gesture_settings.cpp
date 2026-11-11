@@ -36,7 +36,7 @@ constexpr NumericField numericFields[] = {
 QString gestureConfigPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-        + QStringLiteral("/kwin-natural-swipe/gestures.json");
+        + QStringLiteral("/kwin-natural-desktop-slide/gestures.json");
 }
 
 bool validGestureSettings(const GestureSettings &settings, QString *error)

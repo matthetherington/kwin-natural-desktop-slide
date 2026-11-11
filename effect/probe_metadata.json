@@ -1,11 +1,11 @@
 {
   "KPlugin": {
-    "Id": "kwin_natural_swipe_probe",
-    "Name": "Natural Swipe Probe (Development)",
+    "Id": "kwin_natural_desktop_slide_probe",
+    "Name": "Natural Desktop Slide Probe (Development)",
     "Description": "Passive touchpad diagnostics; does not render or intercept gestures",
     "Authors": [{"Name": "Matt Hetherington"}],
-    "Website": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe",
-    "BugReportUrl": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe/issues",
+    "Website": "https://github.com/matthetherington/kwin-natural-desktop-slide",
+    "BugReportUrl": "https://github.com/matthetherington/kwin-natural-desktop-slide/issues",
     "Icon": "preferences-desktop-virtual",
     "Category": "Tools",
     "License": "GPL-2.0-or-later",

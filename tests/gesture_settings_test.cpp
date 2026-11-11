@@ -24,7 +24,8 @@ private Q_SLOTS:
         QVERIFY(store.reload(R"({"schemaVersion":1})"));
         QCOMPARE(store.settings(), GestureSettings{});
         QCOMPARE(store.settings().slowSwipeThreshold, 0.3);
-        QCOMPARE(store.settings().overscrollLimit, 0.2);
+        QCOMPARE(store.settings().overscrollLimit, 0.1);
+        QCOMPARE(store.settings().overscrollLimit, overscrollLimit);
         QCOMPARE(store.settings().overscrollBackground, QString("black"));
         QCOMPARE(store.settings().overscrollColor, QString("#000000"));
         QCOMPARE(store.settings().flickSettleSpeed, 1.0);
@@ -41,6 +42,18 @@ private Q_SLOTS:
         QVERIFY(store.loadFile(missing));
         QCOMPARE(store.settings(), GestureSettings{});
         QVERIFY(!QFile::exists(missing));
+    }
+
+    void savedOverscrollLimitIsPreserved()
+    {
+        GestureSettingsStore store;
+        QVERIFY(store.reload(R"({"schemaVersion":1,"overscrollLimit":0.2})"));
+        QCOMPARE(store.settings().overscrollLimit, 0.2);
+        const auto saved = QJsonDocument(gestureSettingsJson(store.settings())).toJson();
+        QVERIFY(store.reload(saved));
+        QCOMPARE(store.settings().overscrollLimit, 0.2);
+        QVERIFY(store.reload(R"({"schemaVersion":1})"));
+        QCOMPARE(store.settings().overscrollLimit, 0.1);
     }
 
     void invalidValuesRetainWholePreviousSettings()

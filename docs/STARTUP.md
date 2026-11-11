@@ -1,81 +1,102 @@
-# Plasma login startup and recovery
+# Startup and recovery
 
-The approved user service is **`natural-swipe-session.service`**, enabled under
-`graphical-session.target`. It runs only in the KDE Wayland environment, after
-`plasma-kwin_wayland.service`, and waits up to 45 seconds for KWin's effects and
-the installed gesture owner to be ready. Source helpers now also support systems
-without InputActions; the original deployed snapshots on this machine are unchanged.
-There is no persistent test timer or compositor restart.
+<!-- Intended audience: users enabling login startup or troubleshooting activation. -->
 
-It uses the same guarded handoff as the live tests: save the original stock/project
-renderer, unload it before loading the preview, then load the controller while
-InputActions still blocks ownership and unload InputActions. Saved gesture values
-are used without a temporary background override. Bindings and `kwinrc` startup
-preferences are not rewritten. Failures attempt recovery of both original layers.
+Most users should follow the package instructions below. The final section is only
+for existing source-installed services.
 
-In the portable source helper, InputActions is optional: its presence is recorded
-in the recovery baseline, and native KWin handling resumes when the controller is
-unloaded on systems without it. An installed-but-inactive InputActions plugin is
-still refused rather than guessing ownership. Legacy baselines mean InputActions
-was active. See [platform limits](COMPATIBILITY.md), particularly the systemd and
-KWin version requirements, before deploying this service elsewhere.
+## Release packages
 
-The current approved installation pins these installed plugin identities:
+Run these commands in Konsole as your normal desktop user, **not** with `sudo`.
+Save your work before turning on the effect.
 
-- `kwin_natural_slide_preview3`
-- `kwin_natural_swipe_controller_preview16`
+| What you want | Command |
+| --- | --- |
+| Try it for this session | `natural-desktop-slide-session start` |
+| Undo a session-only trial | `natural-desktop-slide-session stop` |
+| Turn it on now and at future logins | `natural-desktop-slide-session enable` |
+| Turn it off and disable future startup | `natural-desktop-slide-session disable` |
+| Check its state | `natural-desktop-slide-session status` |
 
-Do not retire those files while startup uses them. New development builds do not
-implicitly retarget the service. The private helper snapshots and `startup.json`
-live in `~/.local/libexec/kwin-natural-swipe/`, independent of the source checkout
-and CMake build folders. Recovery state lives under
-`~/.local/state/kwin-natural-swipe/` (or the configured XDG state directory).
+Login startup needs a systemd user session. Session-only `start`/`stop` also work
+without systemd. Do not mix the two modes: stop a manual trial before enabling
+login startup. If login startup is enabled, use `disable` to turn it off completely.
 
-The systemd user unit lives at
-`~/.config/systemd/user/natural-swipe-session.service`. Its template and tested
-runner are `tools/natural-swipe-session.service.in` and `tools/startup-session.py`.
-The runner can safely adopt an already-active pinned pair only with a valid
-managed recovery baseline. The approved installation used that path: no live
-effects were reloaded, the former timed-test rollback was stopped, and the prior
-manual baseline was archived under ignored `local/controller-session/`.
+The helper restores the recorded desktop animation and gesture handler. KDE's
+original Slide effect stays installed. InputActions is optional and its bindings
+are never edited. Never enable both desktop-switching effects yourself.
 
-## Check status
+## If startup fails
+
+For login startup, check the service and its log:
 
 ```sh
-systemctl --user status natural-swipe-session.service
-python3 ~/.local/libexec/kwin-natural-swipe/startup-session.py status
-journalctl --user -u natural-swipe-session.service -b
+systemctl --user status natural-desktop-slide-session.service
+journalctl --user -u natural-desktop-slide-session.service -b
 ```
 
-`active (exited)` is expected: a oneshot handoff remains managed with
-`RemainAfterExit=yes`; it does not require a background polling process.
+`active (exited)` is normal: the service hands control to KWin and then finishes.
+If activation reports a version mismatch, install a matching package rather than
+forcing it. If an updated plugin still behaves like the old one, save your work
+and log out/in before trying it again.
 
-## Restore the original setup
+Recovery records normally live in
+`~/.local/state/kwin-natural-desktop-slide/` (or under `XDG_STATE_HOME` if set).
+**Do not delete a live recovery record** to bypass an error: it records what
+should be restored. Conflicting or malformed state is rejected rather than guessed.
+
+Helpers cannot recover a crashed or unresponsive KWin. If that happens, the desktop
+session may already be lost. After returning to a usable session, disable login
+startup before trying again. Report the error and system versions in the
+[issue tracker](https://github.com/matthetherington/kwin-natural-desktop-slide/issues),
+but check logs for private information before sharing them.
+
+## Existing source-installed login services
+
+This section is for advanced users who previously installed a private startup
+helper, not users who installed a release package.
+
+The source-installed service pins plugin identities and keeps private helper
+snapshots, independent of the checkout. It waits for a known renderer and gesture
+owner under the systemd Plasma Wayland graphical session.
+
+| Item | Default location |
+| --- | --- |
+| Settings | `~/.config/kwin-natural-desktop-slide/{panels,gestures}.json` |
+| Private helpers/config | `~/.local/libexec/kwin-natural-desktop-slide/` |
+| Recovery | `~/.local/state/kwin-natural-desktop-slide/renderer-session.json` |
+| User unit | `~/.config/systemd/user/natural-desktop-slide-session.service` |
+
+Pinned identities are recorded in the installed `startup.json`; they are not
+necessarily the source-build defaults. Do not overwrite or retire pinned plugins
+while that setup is in use. The template is
+`tools/natural-desktop-slide-session.service.in`.
 
 ```sh
-# Restore the original renderer/InputActions now and disable future login startup:
-systemctl --user disable --now natural-swipe-session.service
+python3 ~/.local/libexec/kwin-natural-desktop-slide/startup-session.py status
+# Restore the baseline and disable future startup:
+systemctl --user disable --now natural-desktop-slide-session.service
 ```
 
-Stopping the service calls its full recovery helper. Saved panel/gesture choices
-are retained. To pause only until the next login, use `stop` instead of `disable
---now`; to resume an enabled service, use `start`. Avoid direct/manual effect
-switching while the service owns the handoff. In particular, source-tree
-`overscroll-rollback` is for timed manual tests, not this installed service's
-separate recovery-state file.
+To pause only until next login, use `systemctl --user stop` with the service name;
+use `start` to resume. If stopping fails but KWin responds, retry the private
+helper with `stop`. Repository backups and build directories are not required
+for this service's recovery.
 
-If service stopping fails but KWin still responds, the managed helper can retry:
+Do not use the source-tree manual test helper to recover this managed service:
+it has a separate baseline. For source-tree tests, see
+[development recovery](DEVELOPMENT.md#recovery).
 
-```sh
-python3 ~/.local/libexec/kwin-natural-swipe/startup-session.py stop
-```
+### Migrate a source service to a release package
 
-Do not delete recovery state while its preview is active. If logout/crash prevents
-normal service stopping, the next login may archive the old state only when the
-recorded original renderer and InputActions are actually active again. Mismatched
-or malformed state is refused rather than guessed. If pinned plugins are missing,
-the handoff times out without modifying the original setup. KWin remains pinned to
-6.8.2; updates require ABI review and rebuilding, not silent reuse.
+1. Stop and disable the source-installed service using its existing recovery
+   command above. Confirm that the previous renderer and gesture owner are restored.
+2. Archive/move `~/.config/systemd/user/natural-desktop-slide-session.service`
+   outside systemd's unit directories. This user unit would otherwise override
+   the package's service.
+3. Run `systemctl --user daemon-reload`.
+4. Save your work and log out/in to clear previously loaded plugin identities.
+5. Follow [package activation](BINARY_PACKAGES.md#configure-and-opt-in).
 
-Startup/recovery logic has mocked tests and the live no-reload adoption and unit
-enablement were verified. A full reboot/login cycle has not yet been tested.
+Do not delete a live recovery baseline. Existing private helpers can remain until
+migration is confirmed. Installed package updates never restart KWin for you.

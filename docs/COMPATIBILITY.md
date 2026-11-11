@@ -1,105 +1,62 @@
-# Portability and KDE Store readiness
+# Compatibility and known limitations
 
-## Current support boundary
+<!-- Intended audience: users checking whether their system is suitable. -->
 
-There is no Apple-, Asahi- or ARM-specific input/rendering code. The C++ targets
-compile for the host architecture; Qt/KWin supply device input and OpenGL. However,
-**only Fedora Asahi, aarch64, KWin 6.8.2 Wayland has been live-tested**. A successful
-build or mocked test on another platform is not compositor validation.
+Developers porting to another system should also read [portability](PORTABILITY.md) and
+[upstream API notes](UPSTREAM.md).
 
-| Area | Current position |
+## What you need
+
+- **KDE Plasma on Wayland.** X11 is not supported.
+- A package built for your **distribution release, processor architecture and
+  exact KWin package version**. There is no universal Plasma 6 download.
+- A touchpad that provides three-finger swipe events. Apple hardware is not required.
+- OpenGL desktop rendering. The alternative QPainter renderer is not supported.
+
+Not sure which package fits? Check the [installation guide](BINARY_PACKAGES.md)
+before downloading. Do not force an incompatible package to install.
+
+## What has been tested
+
+| Level of testing | Current coverage |
 | --- | --- |
-| CPU | No architecture-specific code; rebuild native plugins for each architecture. x86_64 live testing remains outstanding. |
-| Distribution | Installer uses CMake/KDE plugin paths, not RPM or `/usr/lib64`. `lib`, `lib64` and Debian-style multiarch layouts have synthetic tests. |
-| KWin | **6.8.2 exactly**. Private input/desktop APIs and SpringMotion layout prevent a generic Plasma 6 binary. |
-| Session | Plasma Wayland. X11 is not supported/tested. |
-| Graphics | Overscroll renderer requires OpenGL; QPainter/software compositors are refused. Mesa software OpenGL is not a validated performance target. |
-| Displays | Gesture controller requires exactly one display. The guard remains intentional; do not advertise multi-monitor gesture support. |
-| Trackpad | Requires libinput/KWin swipe and finger-axis events. Sensitivity/flick settings accommodate device differences; 300 units is not a universal physical distance. |
-| InputActions | Optional. If discoverable it must initially be loaded for guarded handoff. If absent, unloading our controller restores native KWin handling. |
-| Other gesture owners | Not automatically detected. Conflicting third-party input filters must be disabled by the user; do not promise universal coexistence. |
-| Installation | Native Qt/KWin plugin search directory must be writable (usually administrator/package-manager installation). Arbitrary `~/.local/share/kwin/effects` installation will not load C++ plugins. |
+| Real desktop | Fedora Asahi, aarch64, KWin 6.8.2 Wayland only. |
+| Native builds and automated tests | KWin 6.7.4, 6.7.5 and 6.8.2 on ARM64. This does not establish live desktop support on every system. |
+| Source review | KWin 6.7.0–6.7.6 and 6.8.0–6.8.2. Other versions are rejected; review alone is not a successful build or desktop test. |
+| Multiple screens | Two/three virtual screens, including shared and independent desktops. Physical multi-monitor testing remains outstanding. |
 
-### ABI safety
+Release build targets also include x86_64 and other distributions. A target is
+not a promise that a download exists or has been tested on physical hardware.
+Detailed test records and pending CI checks are in [project status](PLAN.md).
 
-Keep the exact KWin version requirement. The compatibility declaration is used
-only if the distribution omits `effect/springmotion.h`; a matching installed
-header is preferred. Missing exported symbols fail at link time. Downstream
-patches can still change a private ABI even at the same version.
+## Updates need care
 
-Supporting another KWin release requires reviewing its headers, signal signatures,
-input-filter ordering, rendering APIs and spring layout, then compiling and
-live-testing a separately built plugin. Removing `EXACT` is not a port.
+This effect uses internal KWin interfaces that can change between updates.
+Each binary must match the KWin build it was made for. Packages deliberately
+require an exact KWin package version; source users must rebuild after KWin updates.
+Distribution patches can also require further review.
 
-## Distribution-neutral builds and packaging
+If an update is blocked by this package, wait for a matching rebuild or
+[disable and remove the effect](BINARY_PACKAGES.md#upgrade-or-remove) before
+updating KWin. Do not bypass dependency checks. Log out and back in before using
+replacement plugins, since KWin can retain the old code in memory.
 
-Use the full build in [README](../README.md). CMake generates
-`install-layout-<configuration>.json` containing actual target files and KDE's
-destination paths. Reconfigure existing build trees before using the installer.
+## Known limitations
 
-```sh
-# Read-only: verify build/version and inspect destinations before authentication.
-python3 tools/install-settings.py --all --build-dir build-controller --dry-run
+- **Experimental:** a crash can end your desktop session. Save work before testing.
+- **Panel matching uses position and screen**, not a permanent panel identity.
+  Pick panels again after changing their layout or display scaling. Panels spanning
+  screens and ambiguous mirrored-screen layouts cannot be picked reliably.
+- **Two-finger follow-ups can intercept horizontal scrolling** briefly while an
+  animation finishes. They can be disabled in [settings](CONFIGURATION.md).
+- **Other gesture tools may conflict.** InputActions is optional and the activation
+  helper can hand over control without editing its bindings. Other conflicting
+  gesture tools must be disabled yourself.
+- **Login startup requires systemd user services.** Session-only activation also
+  works without systemd.
+- **GPU, HDR, rotated displays and non-Apple touchpads need broader testing.**
+  Passing a software-rendered or simulated test does not validate physical hardware.
 
-# Stage into a packaging root, without root privileges or modifying the session.
-# This deliberately does not check the host's installed KWin runtime version.
-python3 tools/install-settings.py --all --build-dir build-controller --destdir "$PWD/stage"
-```
-
-Select `--config Debug`/`Release` for multi-configuration builds. The session helper
-also accepts `--build-dir` to read development plugin identities from a custom
-build. Recovery state remains in the same private location; do not mix manual
-sessions with the installed login service.
-
-Package maintainers can instead use normal CMake installation with `DESTDIR` and
-components `effect`, `settings`, `controller`, `overscroll` and optionally `probe`.
-Do not bundle system Qt/KWin libraries. Declare matching KWin/private-ABI and
-architecture dependencies, and rebuild after relevant KWin updates.
-
-On immutable distributions, use their supported package/layering mechanism rather
-than trying to write a read-only `/usr`. A container/Flatpak's plugin directory is
-not the host KWin's plugin directory. Per-user compiled plugin installation needs
-an explicitly supported Qt plugin search path; a custom prefix alone is not enough.
-
-## KDE Store
-
-**This is not currently a one-click KDE Store effect.** KDE's documented
-`KWin/Effect` packages contain JavaScript/QML loaded through KPackage. Our native
-shared libraries and private input filter cannot be installed that way merely by
-adding a `package/metadata.json` or zipping the build directory.
-
-Recommended paths:
-
-1. **Near term:** publish source and clear compatibility requirements; provide
-   distribution packages built for each supported KWin version and architecture.
-   A Store listing may point users to those installation instructions, but must
-   not claim normal “Get New Effects” installation works.
-2. **For one-click Store installation:** investigate a JS/QML redesign against
-   the supported effects/scripting APIs. First prove those APIs can provide the
-   required selective panel painting and continuous gesture/finger-scroll ownership.
-   A native companion would still require separately installed distro packages.
-3. **Long term:** consider upstreaming gesture/rendering hooks or the feature
-   itself, reducing dependence on unstable compositor internals.
-
-References:
-- [KDE developer guide: KWin effects and Store distribution](https://develop.kde.org/docs/plasma/kwineffect/)
-- [KWin developer explanation of native-effect distribution constraints](https://blog.vladzahorodnii.com/2024/03/)
-
-## Before claiming wider support
-
-- Test x86_64 and aarch64 on at least two distributions with exact matching KWin.
-- Exercise native gestures without InputActions and handoff/recovery with it.
-- Check non-Apple touchpads, natural-scroll inversion, contact loss, short flicks,
-  cancellation, lock/unlock, device removal and suspend/resume.
-- Verify panel picking, fixed/selected panels, edge colours/wallpaper, fractional
-  scaling, rotated outputs, HDR/colour management and interrupted returns.
-- Reboot/login-test startup and rollback on each target distribution. The existing
-  service assumes systemd user sessions and `plasma-kwin_wayland.service`; other
-  session managers need a reviewed integration, not an unconditional autostart.
-- Test package installation/removal and rebuild/update behaviour without replacing
-  stock Slide or leaving competing gesture owners active.
-
-CI builds standalone Qt models/UI/tools on Ubuntu x86_64 with GCC and Clang, with
-and without widget dependencies. It does **not** install a KWin plugin, validate
-other KWin releases or replace live GPU/session tests. The workflow is newly added;
-its hosted runs have not yet been observed.
+This native plugin cannot be installed through “Get New Effects” or inside a
+Flatpak. Immutable distributions need their supported system-package mechanism.
+See [maintainer notes](MAINTAINERS.md#distribution-constraints) for the technical reasons.

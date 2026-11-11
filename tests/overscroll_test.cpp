@@ -34,7 +34,8 @@ private Q_SLOTS:
         QVERIFY(std::abs(right.x() - 1000) < 1e-8);
         QVERIFY(std::abs(right.width() - 100) < 1e-8);
         QVERIFY(overscrollGap(1.5, 4, output).isEmpty());
-        QCOMPARE(overscrollGap(10, 4, output), QRectF(900, 200, 200, 600));
+        QCOMPARE(overscrollGap(10, 4, output), QRectF(1000, 200, 100, 600));
+        QCOMPARE(overscrollGap(10, 4, output, 0.2), QRectF(900, 200, 200, 600));
         QVERIFY(overscrollGap(1, 0, output).isEmpty());
     }
 
@@ -54,23 +55,25 @@ private Q_SLOTS:
     void adjacentWallpaperRevealsTheCorrectImageEdge()
     {
         const QRectF output(100, 200, 1000, 600);
-        for (double amount : {0.01, 0.05, 0.1, 0.2}) {
-            const auto leftGap = overscrollGap(-amount, 4, output);
-            const double leftOffset = overscrollWallpaperOffset(-amount, 4, output.width());
-            const auto leftSource = leftGap.translated(-leftOffset, 0);
-            QVERIFY(std::abs(leftSource.right() - output.right()) < 1e-8);
-            QVERIFY(std::abs(leftSource.left() - (output.right() - amount * output.width())) < 1e-8);
-            QVERIFY(leftOffset < 0); // The adjacent tile mostly remains offscreen to the left.
+        for (double limit : {0.1, 0.2, 0.4}) {
+            for (double amount : {0.01, 0.05, limit / 2, limit}) {
+                const auto leftGap = overscrollGap(-amount, 4, output, limit);
+                const double leftOffset = overscrollWallpaperOffset(-amount, 4, output.width(), limit);
+                const auto leftSource = leftGap.translated(-leftOffset, 0);
+                QVERIFY(std::abs(leftSource.right() - output.right()) < 1e-8);
+                QVERIFY(std::abs(leftSource.left() - (output.right() - amount * output.width())) < 1e-8);
+                QVERIFY(leftOffset < 0); // The adjacent tile mostly remains offscreen to the left.
 
-            const auto rightGap = overscrollGap(3 + amount, 4, output);
-            const double rightOffset = overscrollWallpaperOffset(3 + amount, 4, output.width());
-            const auto rightSource = rightGap.translated(-rightOffset, 0);
-            QVERIFY(std::abs(rightSource.left() - output.left()) < 1e-8);
-            QVERIFY(std::abs(rightSource.right() - (output.left() + amount * output.width())) < 1e-8);
+                const auto rightGap = overscrollGap(3 + amount, 4, output, limit);
+                const double rightOffset = overscrollWallpaperOffset(3 + amount, 4, output.width(), limit);
+                const auto rightSource = rightGap.translated(-rightOffset, 0);
+                QVERIFY(std::abs(rightSource.left() - output.left()) < 1e-8);
+                QVERIFY(std::abs(rightSource.right() - (output.left() + amount * output.width())) < 1e-8);
+            }
         }
         // More drag moves the left-hand neighbour farther right, revealing
         // progressively more of its right-hand image, not a fixed crop.
-        QVERIFY(overscrollWallpaperOffset(-0.15, 4, 1000) > overscrollWallpaperOffset(-0.05, 4, 1000));
+        QVERIFY(overscrollWallpaperOffset(-0.08, 4, 1000) > overscrollWallpaperOffset(-0.04, 4, 1000));
         QCOMPARE(overscrollWallpaperOffset(1.5, 4, 1000), 0.0);
         QCOMPARE(overscrollWallpaperOffset(-0.1, 0, 1000), 0.0);
         QCOMPARE(overscrollWallpaperOffset(-0.1, 4, std::numeric_limits<double>::infinity()), 0.0);

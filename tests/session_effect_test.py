@@ -14,6 +14,8 @@ spec = importlib.util.spec_from_file_location(
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+# Exercise separate development identities as well as the canonical unified one.
+module.PREVIEW = "kwin_natural_desktop_slide_devtest"
 
 
 class FakeEffects(module.SessionEffects):
@@ -84,7 +86,7 @@ class FakePreviewEffects(FakeControllerEffects):
     def call(self, method, *args):
         if method == "listOfEffects":
             return '\n'.join([module.STOCK, module.CUSTOM, module.CONTROLLER, module.PREVIEW,
-                              "kwin_natural_slide_preview999"] + ([module.INPUTACTIONS] if self.inputactions_available else []))
+                              "kwin_natural_desktop_slide_dev999"] + ([module.INPUTACTIONS] if self.inputactions_available else []))
         if method == "loadEffect" and args[0] in (module.STOCK, module.CUSTOM, module.PREVIEW):
             assert not self.loaded_renderers(), 'never load competing renderers'
             if args[0] == module.PREVIEW and self.fail_renderer:
@@ -95,6 +97,23 @@ class FakePreviewEffects(FakeControllerEffects):
 
 
 class SessionEffectTest(unittest.TestCase):
+    def test_canonical_renderer_is_counted_once_and_restores_stock(self):
+        with patch.object(module, "PREVIEW", module.CUSTOM), tempfile.TemporaryDirectory() as directory:
+            effects = FakePreviewEffects(Path(directory) / "session.json")
+            effects.state = {module.STOCK, module.INPUTACTIONS}
+            effects.preview_enable()
+            self.assertEqual(effects.loaded_renderers(), [module.CUSTOM])
+            effects.preview_rollback()
+            self.assertEqual(effects.state, {module.STOCK, module.INPUTACTIONS})
+
+    def test_canonical_renderer_already_selected_is_not_reloaded(self):
+        with patch.object(module, "PREVIEW", module.CUSTOM), tempfile.TemporaryDirectory() as directory:
+            effects = FakePreviewEffects(Path(directory) / "session.json")
+            effects.preview_enable()
+            effects.preview_rollback()
+            self.assertEqual(effects.state, {module.CUSTOM, module.INPUTACTIONS})
+            self.assertFalse(any(args == (module.CUSTOM,) and method in ("loadEffect", "unloadEffect") for method, args in effects.history))
+
     def test_qdbus_names_and_qt_host_directory(self):
         for name in ("qdbus-qt6", "qdbus6", "qdbus"):
             with patch.object(module.shutil, "which", side_effect=lambda value: "/tools/" + value if value == name else None):
@@ -254,8 +273,8 @@ class SessionEffectTest(unittest.TestCase):
     def test_preview_rollback_handles_old_generations(self):
         with tempfile.TemporaryDirectory() as directory:
             effects = FakePreviewEffects(Path(directory)/"session.json")
-            effects.preview_state.write_text('{"renderer": "kwin_natural_slide"}')
-            effects.state = {"kwin_natural_slide_preview999", module.INPUTACTIONS}
+            effects.preview_state.write_text('{"renderer": "kwin_natural_desktop_slide"}')
+            effects.state = {"kwin_natural_desktop_slide_dev999", module.INPUTACTIONS}
             effects.preview_rollback()
             self.assertEqual(effects.state, {module.CUSTOM, module.INPUTACTIONS})
 
@@ -279,7 +298,7 @@ class SessionEffectTest(unittest.TestCase):
             effects.runner = runner
             with self.assertRaisesRegex(RuntimeError, "wait until settled"):
                 module.SessionEffects.preview_mode(effects, "wallpaper")
-            self.assertEqual(calls[0][-2:], ["org.kde.KWin.NaturalSwipe.setOverscrollMode", "wallpaper"])
+            self.assertEqual(calls[0][-2:], ["org.kde.KWin.NaturalDesktopSlide.setOverscrollMode", "wallpaper"])
             self.assertEqual(effects.state, {module.PREVIEW, module.INPUTACTIONS})
 
     def test_preview_can_restore_stock_baseline(self):

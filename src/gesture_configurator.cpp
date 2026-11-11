@@ -32,8 +32,8 @@ bool reloadActiveSettings(const QString &path, QString &message)
 {
     QDBusInterface effects("org.kde.KWin", "/Effects", "org.kde.kwin.Effects");
     const auto loaded = effects.property("loadedEffects").toStringList();
-    const QRegularExpression renderer("^kwin_natural_slide(?:_preview[0-9]+)?$");
-    const QRegularExpression controller("^kwin_natural_swipe_controller(?:_[a-zA-Z0-9]+)?$");
+    const QRegularExpression renderer("^kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?$");
+    const QRegularExpression controller("^kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?$");
     QStringList renderers, controllers;
     for (const auto &name : loaded) {
         if (renderer.match(name).hasMatch()) renderers.append(name);
@@ -44,8 +44,8 @@ bool reloadActiveSettings(const QString &path, QString &message)
         return false;
     }
     struct Component { QString id, path, interface, status; };
-    QList<Component> components{{renderers.front(), "/org/kde/KWin/Effects/NaturalSwipe", "org.kde.KWin.NaturalSwipe", "configurationStatus"}};
-    if (!controllers.isEmpty()) components.append({controllers.front(), "/org/kde/KWin/Effects/NaturalSwipeController", "org.kde.KWin.NaturalSwipeController", "controllerStatus"});
+    QList<Component> components{{renderers.front(), "/org/kde/KWin/Effects/NaturalDesktopSlide", "org.kde.KWin.NaturalDesktopSlide", "configurationStatus"}};
+    if (!controllers.isEmpty()) components.append({controllers.front(), "/org/kde/KWin/Effects/NaturalDesktopSlideController", "org.kde.KWin.NaturalDesktopSlideController", "controllerStatus"});
     // Preflight ALL components before reloading any. Old cached libraries may
     // not support gesture settings; never report success against those versions.
     for (const auto &component : components) {
@@ -99,7 +99,7 @@ public:
         layout->setSizeConstraint(QLayout::SetMinimumSize);
         layout->setAlignment(Qt::AlignTop);
         auto note = new QLabel("Three fingers initiate desktop control. These settings never enable an effect or change InputActions bindings. "
-                               "Overscroll requires the matching preview renderer; gesture controls require the project controller.");
+                               "Overscroll is included in the renderer; gesture controls require the project controller.");
         note->setWordWrap(true);
         note->setTextFormat(Qt::PlainText);
         note->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);

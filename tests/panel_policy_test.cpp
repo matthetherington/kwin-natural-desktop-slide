@@ -43,7 +43,7 @@ private Q_SLOTS:
 
     void matchesFloatingSidePanels()
     {
-        const QVector rules{slidingRule(Edge::Left), slidingRule(Edge::Right)};
+        const QVector<PanelRule> rules{slidingRule(Edge::Left), slidingRule(Edge::Right)};
         QCOMPARE(selectPanel(leftPanel(), rules).action, PanelAction::Slide);
         auto right = leftPanel();
         right.geometry.moveLeft(1860);

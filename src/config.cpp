@@ -91,7 +91,7 @@ bool parseRule(const QJsonObject &object, PanelRule &rule, const QString &path, 
 QString panelConfigPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-        + QStringLiteral("/kwin-natural-swipe/panels.json");
+        + QStringLiteral("/kwin-natural-desktop-slide/panels.json");
 }
 
 bool ConfigStore::reload(const QByteArray &json, QString *error)

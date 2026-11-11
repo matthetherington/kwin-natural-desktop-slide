@@ -1,108 +1,48 @@
-# Gesture controller and diagnostics
+# How swipes work
 
-The renderer and input controller are separate, disabled-by-default KWin plugins.
-The controller temporarily takes gesture ownership from InputActions, if installed,
-without editing its bindings. With no InputActions plugin, it takes ownership from
-native KWin handling until unloaded. It requires one display and a supported renderer.
-See the [README](../README.md) for the full build/install/session-test sequence.
+<!-- Intended audience: users learning the gestures and their limitations. -->
 
-## Tracking rules
+## Switch desktops
 
-- Exactly three fingers initiate. After 8 raw movement units, acquire horizontal
-  motion when `abs(x) >= abs(y)` (inclusive ±45°); lock that axis thereafter.
-- Physical right selects the right-hand desktop. Progress uses 300 input units
-  per desktop by default; reversals remain continuous and partial swipes can abort.
-- Slow releases commit at 30%. Acquired same-direction flicks at or above
-  1 desktop/second can commit independently of distance. Pauses and movement back
-  toward the origin do not qualify as flicks.
-- Velocity uses up to 100 ms and at most 32 samples. Invalid data/timestamps cancel
-  safely. A new gesture snapshots settings; reloads never alter its tracking midway.
-- Vertical three-finger streams are consumed, not handed to another gesture owner.
-  Streams started during foreign fullscreen effects are drained without switching.
-- Re-entry can interrupt the controller's own settling renderer, but starts from
-  the committed desktop rather than its exact spring position; a jump is possible.
+Swipe horizontally with **three fingers** on your touchpad. The desktop follows
+your fingers, so you can reverse direction or return to where you started to cancel.
 
-## Continuous finger-scroll follow-ups
+- A slow swipe switches desktops after about **30%** of a desktop by default.
+- A quick flick can switch even if you have not moved that far.
+- If you start another swipe before the animation finishes, it continues from
+  the current position rather than snapping back first.
+- At the first or last desktop, the animation gently resists further movement
+  and returns when you let go. If desktop wrapping is enabled, it uses the next
+  desktop instead.
 
-Build with `ENABLE_SETTLING_UNDO=ON` (historical option name) and enable follow-ups
-in settings. A released three-finger preview opens a follow-up window for exactly
-its settling animation, including after partial return. Horizontal unmodified
-touchpad **Finger** axis streams then use the same tracking/release model.
+## Continue with two fingers
 
-Horizontal axis-stop releases the follow-up. Each switch or partial return may
-reopen the window while settling; there is no follow-up count limit. An admitted
-stream remains owned until its own stop. New three-finger input supersedes it;
-context changes cancel and drain stale tails. Ordinary scrolling resumes once the
-renderer fully settles. Vertical, wheel and modified scrolling cannot initiate it.
+After releasing a three-finger swipe, you can continue with horizontal two-finger
+movement **while the animation is still finishing**. Once it stops, normal scrolling
+resumes and a new desktop switch needs three fingers again.
 
-A recognized blocked three-finger edge swipe with no animation instead opens a
-400 ms entry window. Cancelled/rejected swipes cannot open it, unrelated scrolling
-cannot extend it, and admitted follow-ups use the normal animation window.
+This can briefly intercept horizontal scrolling in applications. You can turn off
+**Two-finger follow-ups** in [settings](CONFIGURATION.md). The touchpad events do
+not reliably reveal finger count during these follow-ups; this is not palm rejection.
 
-**Tradeoff:** ordinary horizontal trackpad scrolling during that window can control
-desktops. High-level finger-scroll events cannot reliably prove two-finger count
-or uninterrupted contact. This is not palm rejection or raw finger-drop tracking.
+## Panels and multiple screens
 
-## Overscroll renderer preview
+Only panels you select slide. Other panels remain fixed, and panel contents do
+not change between desktops.
 
-The separate overscroll renderer admits resisted offsets approaching 20% of a
-desktop at missing neighbours. Release always returns unless movement reverses
-into an available neighbour. Wrapping uses real neighbours instead of overscroll.
-No extra desktops, panels or panel contents are created.
+With shared desktops, all screens switch together. With independent desktops,
+the gesture controls the screen active when it begins. Screen layout changes
+cancel a gesture. Multi-screen behaviour has been tested with virtual screens,
+not yet physical multi-monitor hardware.
 
-- **Solid colour:** fills the exposed strip at wallpaper depth, leaving fixed
-  panels/windows above it. Black is the default; the settings picker offers RGB,
-  hexadecimal and HSL controls. The stored mode remains `"black"` for compatibility.
-- **Adjacent wallpaper:** translates a wallpaper-only neighbouring tile, clipped
-  to the gap. Its rightmost edge enters first at the left boundary, mirrored at
-  the right boundary. It is neither a stretched crop nor a stationary backdrop.
+## Limitations
 
-The normal renderer retains edge clamping. Settings and defaults are documented
-in [CONFIGURATION.md](CONFIGURATION.md#gestures-and-animation-settings).
+- Vertical three-finger gestures are consumed while this controller is active;
+  they are not passed to another gesture tool.
+- Other desktop gesture tools can conflict. InputActions is optional and its
+  settings are not edited, but other conflicting tools must be disabled yourself.
+- A mouse wheel cannot start a follow-up, and a touchpad without three-finger
+  gesture support cannot start a swipe.
 
-For manual comparisons, use `overscroll-enable --background black` or
-`overscroll-mode --background wallpaper` while idle. These override the stored
-mode only until renderer reload/unload; omitting the override uses saved settings.
-
-The manual helper saves the original renderer and whether InputActions was active under ignored
-`local/controller-session/overscroll-renderer-session.json` before changing effects.
-`overscroll-rollback` restores **both** renderer and original gesture handling;
-`controller-rollback` alone leaves the renderer unchanged. Activation failures
-attempt full recovery; malformed or conflicting baselines are refused.
-For timed development tests, schedule `overscroll-rollback` before activation.
-For an installed login service, use [service recovery](STARTUP.md) instead.
-
-Changed libraries need fresh renderer/controller identities in the same KWin
-session. Never assume installing or unloading replaces cached code. Do not change
-build manifests during a manual test or retire startup-pinned plugins.
-
-## Read-only diagnostics
-
-```sh
-qdbus-qt6 org.kde.KWin /org/kde/KWin/Effects/NaturalSwipeController \
-  org.kde.KWin.NaturalSwipeController.controllerStatus
-qdbus-qt6 org.kde.KWin /org/kde/KWin/Effects/NaturalSwipe \
-  org.kde.KWin.NaturalSwipe.configurationStatus
-```
-
-Status includes latest admission/release/interruption reasons, counters,
-follow-up/edge-window state, progress, velocity and settings. It is not a complete
-event trace and cannot establish a driver's palm classification.
-
-An optional passive `InputEventSpy` probe remains useful for input-routing work:
-
-```sh
-cmake -S . -B build-observer -DBUILD_KWIN_EFFECT=ON -DENABLE_GESTURE_OBSERVER=ON
-cmake --build build-observer --parallel 2
-ctest --test-dir build-observer --output-on-failure
-# Only after approval to install/load diagnostic code:
-pkexec /usr/bin/python3 "$PWD/tools/install-settings.py" --probe-only
-qdbus-qt6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin_natural_swipe_probe
-qdbus-qt6 org.kde.KWin /org/kde/KWin/Effects/NaturalSwipeProbe \
-  org.kde.KWin.NaturalSwipeProbe.gestureStatus
-qdbus-qt6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin_natural_swipe_probe
-```
-
-The probe observes before filters without consuming input or calling the renderer.
-It keeps latest-state data only, not per-event logs, keyboard data or window titles;
-locking clears/suspends it. Keep private captures under ignored `local/`.
+See [compatibility](COMPATIBILITY.md) for system requirements, or
+[gesture internals](GESTURE_INTERNALS.md) for exact thresholds and diagnostics.

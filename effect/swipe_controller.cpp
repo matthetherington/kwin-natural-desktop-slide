@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "swipe_session.h"
 #include "settling_swipe.h"
+#include "output_context.h"
+#include "api_compat.h"
+#include "compat/runtime_version.h"
 #include "core/inputdevice.h"
 #include "core/output.h"
 #include "effect/effect.h"
@@ -14,9 +17,13 @@
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QPointer>
 #include <QRegularExpression>
 #include <QTimer>
+#if NATURAL_DESKTOP_SLIDE_TEST_DRIVER
+#include "core/outputconfiguration.h"
+#endif
 
 namespace KWin
 {
@@ -27,7 +34,7 @@ namespace
 {
 bool isPreviewRenderer(const QString &name)
 {
-    static const QRegularExpression pattern(QStringLiteral("^kwin_natural_slide_preview[0-9]+$"));
+    static const QRegularExpression pattern(QStringLiteral("^kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?$"));
     return pattern.match(name).hasMatch();
 }
 
@@ -35,9 +42,20 @@ QStringList loadedRenderers()
 {
     QStringList names;
     for (const auto &name : effects->loadedEffects()) {
-        if (name == "slide" || name == "kwin_natural_slide" || isPreviewRenderer(name)) names.append(name);
+        if (name == "slide" || isPreviewRenderer(name)) names.append(name);
     }
     return names;
+}
+
+QVector<NaturalSwipe::GestureOutput> outputLayout()
+{
+    QVector<NaturalSwipe::GestureOutput> result;
+    for (auto output : effects->screens()) {
+        const auto r = output->geometry();
+        result.append({reinterpret_cast<quintptr>(output), QRectF(r.x(), r.y(), r.width(), r.height()),
+                       output->scale(), int(output->transform().kind())});
+    }
+    return result;
 }
 }
 
@@ -65,7 +83,7 @@ private:
 class SwipeController : public Effect
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.kde.KWin.NaturalSwipeController")
+    Q_CLASSINFO("D-Bus Interface", "org.kde.KWin.NaturalDesktopSlideController")
 public:
     SwipeController() : m_filter(this)
     {
@@ -92,16 +110,19 @@ public:
                 && effects->activeFullScreenEffect() != m_previewOwner) interrupt();
         });
         const auto manager = VirtualDesktopManager::self();
-        connect(manager, &VirtualDesktopManager::currentChanged, this, [this]() { interrupt(); });
+        connect(manager, &VirtualDesktopManager::currentChanged, this, [this](VirtualDesktop *, VirtualDesktop *, LogicalOutput *output) {
+            if (!m_independent || m_targets.contains(output)) interrupt();
+        });
         connect(manager, &VirtualDesktopManager::layoutChanged, this, [this]() { interrupt(); });
         connect(manager, &VirtualDesktopManager::desktopRemoved, this, [this]() { interrupt(); });
         connect(manager, &VirtualDesktopManager::navigationWrappingAroundChanged, this, [this]() { interrupt(); });
         connect(manager, &VirtualDesktopManager::perOutputVirtualDesktopsChanged, this, [this]() { interrupt(); });
         connect(effects, &EffectsHandler::screenRemoved, this, [this]() { interrupt(); });
+        connect(effects, &EffectsHandler::screenAdded, this, [this]() { interrupt(); });
         reconfigure(ReconfigureAll);
         m_registered = QDBusConnection::sessionBus().registerObject(
             QString::fromLatin1(path), this, QDBusConnection::ExportScriptableSlots);
-        if (!m_registered) qWarning() << "Natural Swipe controller: could not register diagnostic object";
+        if (!m_registered) qWarning() << "Natural Desktop Slide controller: could not register diagnostic object";
     }
 
     ~SwipeController() override
@@ -113,7 +134,7 @@ public:
     }
 
     bool isActive() const override { return false; } // This plugin never paints.
-    static bool supported() { return input() && VirtualDesktopManager::self(); }
+    static bool supported() { return NaturalSwipe::runtimeMatchesBuild() && input() && VirtualDesktopManager::self(); }
 
     void reconfigure(ReconfigureFlags) override
     {
@@ -122,7 +143,7 @@ public:
             return;
         }
         if (!m_settings.loadFile(NaturalSwipe::gestureConfigPath(), &m_settingsError))
-            qWarning().noquote() << "Natural Swipe controller: retaining gesture settings:" << m_settingsError;
+            qWarning().noquote() << "Natural Desktop Slide controller: retaining gesture settings:" << m_settingsError;
         m_settingsDeferred = false;
     }
 
@@ -197,7 +218,7 @@ public:
     bool handlePointerAxis(PointerAxisEvent *event)
     {
         if (!settlingUndoEnabled || !event->device || !event->device->isTouchpad()
-            || event->source != PointerAxisSource::Finger || event->autoscroll
+            || event->source != PointerAxisSource::Finger || NaturalSwipe::isAutoscroll(*event)
             || event->orientation != Qt::Horizontal) return false;
         const bool unmodified = event->buttons == Qt::NoButton && event->modifiers == Qt::NoModifier;
         if (!m_scroll.owned()) {
@@ -210,7 +231,7 @@ public:
                 closeFollowups();
                 return false;
             }
-            if (!prepareContext()) {
+            if (!prepareContext(true)) {
                 closeFollowups();
                 return false;
             }
@@ -250,6 +271,60 @@ public:
     }
 
 public Q_SLOTS:
+#if NATURAL_DESKTOP_SLIDE_TEST_DRIVER
+    // Deliberately compiled out of normal builds. The installer refuses builds
+    // with these hooks, and the separate-bus test harness must opt in at runtime.
+    Q_SCRIPTABLE bool testConfigure(bool independent)
+    {
+        if (qEnvironmentVariable("NDS_ISOLATED_TEST") != "1") return false;
+        const auto manager = VirtualDesktopManager::self();
+        manager->setCount(3);
+        manager->setRows(1);
+        manager->setPerOutputVirtualDesktops(independent);
+        for (auto output : effects->screens()) manager->setCurrent(1, output);
+        return true;
+    }
+    Q_SCRIPTABLE bool testGesture(int outputIndex, int phase, double dx, qlonglong timeUs)
+    {
+        if (qEnvironmentVariable("NDS_ISOLATED_TEST") != "1" || timeUs < 0 || !std::isfinite(dx)
+            || outputIndex < 0 || outputIndex >= effects->screens().size()) return false;
+        const auto time = std::chrono::microseconds(timeUs);
+        if (phase == 0) {
+            workspace()->setActiveOutput(effects->screens()[outputIndex]);
+            PointerSwipeGestureBeginEvent event{3, time};
+            return swipeGestureBegin(&event);
+        }
+        if (phase == 1) {
+            PointerSwipeGestureUpdateEvent event{{dx, 0}, time};
+            return swipeGestureUpdate(&event);
+        }
+        if (phase == 2) return finishGesture(time, false);
+        if (phase == 3) return finishGesture(time, true);
+        return false;
+    }
+    Q_SCRIPTABLE QString testOutputs() const
+    {
+        if (qEnvironmentVariable("NDS_ISOLATED_TEST") != "1") return "[]";
+        QJsonArray result;
+        for (auto output : effects->screens()) {
+            const auto r = output->geometry();
+            result.append(QJsonObject{{"name", output->name()}, {"desktop", int(VirtualDesktopManager::self()->current(output))},
+                {"geometry", QJsonArray{r.x(), r.y(), r.width(), r.height()}}, {"scale", output->scale()}});
+        }
+        return QString::fromUtf8(QJsonDocument(result).toJson());
+    }
+    Q_SCRIPTABLE bool testOutputLayout(int index, int x, int y, double scale)
+    {
+        if (qEnvironmentVariable("NDS_ISOLATED_TEST") != "1" || index < 0
+            || index >= effects->screens().size() || scale < 0.5 || scale > 4) return false;
+        OutputConfiguration config;
+        auto change = config.changeSet(effects->screens()[index]->backendOutput());
+        change->pos = QPoint(x, y);
+        change->scale = scale;
+        change->scaleSetting = scale;
+        return NaturalSwipe::outputConfigurationSucceeded(workspace()->applyOutputConfiguration(config));
+    }
+#endif
     Q_SCRIPTABLE QString controllerStatus() const
     {
         const auto &tracker = m_session.tracker();
@@ -279,6 +354,8 @@ public Q_SLOTS:
             {"lastScrollStartDesktop", m_lastScrollStartDesktop},
             {"lastScrollProgress", m_lastScrollProgress}, {"lastScrollVelocity", m_lastScrollVelocity},
             {"renderer", m_renderer}, {"overscroll", m_overscroll},
+            {"outputCount", effects->screens().size()}, {"independentDesktops", m_independent},
+            {"targetOutputCount", m_targets.size()}, {"output", m_output ? m_output->name() : QString()},
             {"gesturePath", NaturalSwipe::gestureConfigPath()}, {"gestureError", m_settingsError},
             {"settingsDeferred", m_settingsDeferred},
             {"configuredSettings", NaturalSwipe::gestureSettingsJson(m_settings.settings())},
@@ -302,6 +379,7 @@ private:
         return !owned() && blockedReason().isEmpty()
             && (rendererSettling || edgeGrace)
             && m_output && effects->screens().contains(m_output)
+            && outputContextValid(m_followupExpected)
             && m_output->geometry() == m_geometry && effects->isEffectLoaded(m_renderer)
             && m_followupExpected && VirtualDesktopManager::self()->currentDesktop(m_output) == m_followupExpected;
     }
@@ -333,17 +411,25 @@ private:
         ++m_edgeWindowCount;
     }
 
-    bool prepareContext()
+    bool prepareContext(bool followup = false)
     {
         if (m_settingsDeferred) reconfigure(ReconfigureAll);
         m_contextSettings = m_settings.settings();
         const auto manager = VirtualDesktopManager::self();
-        m_output = effects->activeScreen();
+        m_output = followup ? m_output.data() : effects->activeScreen();
         if (!m_output) return false;
         m_start = manager->currentDesktop(m_output);
         if (!m_start) return false;
         m_wrap = manager->isNavigationWrappingAround();
         m_geometry = m_output->geometry();
+        m_independent = manager->isPerOutputVirtualDesktops();
+        m_outputLayout = outputLayout();
+        const auto targets = NaturalSwipe::gestureOutputs(m_outputLayout, reinterpret_cast<quintptr>(m_output.data()), m_independent);
+        m_targets.clear();
+        for (auto output : effects->screens()) {
+            if (targets.contains(reinterpret_cast<quintptr>(output))) m_targets.append(output);
+        }
+        if (m_targets.isEmpty()) return false;
         m_left = manager->toLeft(m_start, m_wrap);
         m_right = manager->toRight(m_start, m_wrap);
         const auto renderers = loadedRenderers();
@@ -374,8 +460,13 @@ private:
     {
         if (effects->isScreenLocked()) return "Screen locked";
         if (effects->isEffectLoaded("kwin_gestures")) return "InputActions is loaded; controller will not claim gestures";
-        if (effects->screens().size() != 1) return "Prototype requires exactly one display";
+        if (effects->screens().isEmpty()) return "No displays available";
         if (loadedRenderers().size() != 1) return "Load exactly one supported Slide renderer";
+        if (effects->screens().size() > 1 && VirtualDesktopManager::self()->isPerOutputVirtualDesktops()) {
+            auto renderer = effects->findEffect(loadedRenderers().front());
+            if (!renderer || renderer->metaObject()->indexOfMethod("cancelGestureForOutput(QString)") < 0)
+                return "Independent-display gestures require an updated Natural Desktop Slide renderer";
+        }
         if (input()->isSelectingWindow()) return "Window selection is active";
         if (workspace()->moveResizeWindow()) return "Window move/resize is active";
         if (includeFullScreen && effects->hasActiveFullScreenEffect()
@@ -391,12 +482,25 @@ private:
         if (!blockedReason().isEmpty() || !m_output || !m_start) return false;
         const auto manager = VirtualDesktopManager::self();
         return effects->screens().contains(m_output)
+            && outputContextValid(m_start)
             && m_output->geometry() == m_geometry
             && manager->currentDesktop(m_output) == m_start
             && manager->isNavigationWrappingAround() == m_wrap
             && manager->toLeft(m_start, m_wrap) == m_left
             && manager->toRight(m_start, m_wrap) == m_right
             && effects->isEffectLoaded(m_renderer);
+    }
+
+    bool outputContextValid(const VirtualDesktop *expected) const
+    {
+        const auto manager = VirtualDesktopManager::self();
+        if (manager->isPerOutputVirtualDesktops() != m_independent
+            || !NaturalSwipe::sameOutputLayout(m_outputLayout, outputLayout())) return false;
+        for (const auto &output : m_targets) {
+            if (!output || !effects->screens().contains(output)
+                || manager->currentDesktop(output) != expected) return false;
+        }
+        return !m_targets.isEmpty();
     }
 
     void interrupt()
@@ -416,9 +520,12 @@ private:
         const auto manager = VirtualDesktopManager::self();
         if (frame.preview && m_start && m_output) {
             m_previewSent = true;
-            // Internal KWin bridge, pinned to 6.8.2. We own offsets ourselves;
+            // Internal KWin bridge, reviewed for 6.7.0–6.7.6 and 6.8.0–6.8.2.
+            // We own offsets ourselves;
             // do not invoke native gestureReleasedX or mutate its private state.
-            Q_EMIT manager->currentChanging(m_start, QPointF(frame.offset, 0), m_output);
+            for (const auto &output : m_targets) {
+                if (output) Q_EMIT manager->currentChanging(m_start, QPointF(frame.offset, 0), output);
+            }
             if (!m_previewOwner) m_previewOwner = effects->activeFullScreenEffect();
             if (!m_previewOwner) {
                 m_lastError = "Renderer did not acquire the preview transition";
@@ -438,11 +545,22 @@ private:
             m_lastTargetDesktop = commit ? target->x11DesktopNumber() : (m_start ? m_start->x11DesktopNumber() : 0);
             const bool switched = commit && manager->setCurrent(target, m_output);
             if (!switched) {
-                if (m_previewSent) Q_EMIT manager->currentChangingCancelled();
+                if (m_previewSent) {
+                    if (m_independent && m_previewOwner && m_output) {
+                        QMetaObject::invokeMethod(m_previewOwner, "cancelGestureForOutput", Qt::DirectConnection,
+                                                  Q_ARG(QString, m_output->name()));
+                    } else {
+                        Q_EMIT manager->currentChangingCancelled();
+                    }
+                }
             }
+            if (m_previewOwner && m_previewOwner->metaObject()->indexOfMethod("setGestureRelease(bool)") >= 0)
+                QMetaObject::invokeMethod(m_previewOwner, "setGestureRelease", Qt::DirectConnection, Q_ARG(bool, false));
             // setCurrent commits the logical desktop immediately, before the
             // renderer settles. A fresh gesture can therefore start relative
-            // to that committed desktop and reach its next neighbour. Retain
+            // to that committed desktop and reach its next neighbour. The
+            // renderer separately inherits the visual spring position; that
+            // inherited displacement must not affect our release policy. Retain
             // only the exact renderer which painted our preview, never grant
             // takeover permission merely because some Slide effect is loaded.
             if (m_previewSent && m_previewOwner
@@ -457,8 +575,8 @@ private:
         return frame.consume;
     }
 
-    static constexpr auto path = "/org/kde/KWin/Effects/NaturalSwipeController";
-    static constexpr bool settlingUndoEnabled = NATURAL_SWIPE_SETTLING_UNDO;
+    static constexpr auto path = "/org/kde/KWin/Effects/NaturalDesktopSlideController";
+    static constexpr bool settlingUndoEnabled = NATURAL_DESKTOP_SLIDE_FOLLOWUPS;
     SwipeControllerFilter m_filter;
     NaturalSwipe::SwipeSession m_session;
     NaturalSwipe::SettlingSwipe m_scroll;
@@ -466,6 +584,9 @@ private:
     QTimer m_edgeTimer;
     qint64 m_edgeWindowCount = 0;
     QPointer<LogicalOutput> m_output;
+    QList<QPointer<LogicalOutput>> m_targets;
+    QVector<NaturalSwipe::GestureOutput> m_outputLayout;
+    bool m_independent = false;
     QPointer<VirtualDesktop> m_start, m_left, m_right;
     QPointer<Effect> m_previewOwner;
     QPointer<Effect> m_settlingOwner;
@@ -525,7 +646,7 @@ bool SwipeControllerFilter::pointerAxis(PointerAxisEvent *event)
     return m_controller->handlePointerAxis(event);
 }
 
-KWIN_EFFECT_FACTORY_SUPPORTED_ENABLED(SwipeController, "natural_swipe_controller_metadata.json",
+KWIN_EFFECT_FACTORY_SUPPORTED_ENABLED(SwipeController, "natural_desktop_slide_controller_metadata.json",
     return SwipeController::supported();, return false;)
 
 }

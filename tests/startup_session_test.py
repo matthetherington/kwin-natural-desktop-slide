@@ -17,7 +17,7 @@ class StartupSessionTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.state = Path(self.directory.name)/"overscroll-renderer-session.json"
+        self.state = Path(self.directory.name)/"renderer-session.json"
         self.config = {"schemaVersion": 1, "controllerId": effects_module.CONTROLLER,
                        "rendererId": effects_module.PREVIEW, "stateFile": str(self.state)}
         self.effects = FakePreviewEffects(self.state)

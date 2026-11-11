@@ -11,15 +11,18 @@
 #include "config.h"
 #include "gesture_settings.h"
 #include "animation_speed.h"
+#include "gesture_handover.h"
 #include "effect/effect.h"
 #include "effect/effectwindow.h"
 #include "effect/timeline.h"
-#include "compat/springmotion.h"
+#include "spring_motion.h"
+#include "api_compat.h"
 #include <map>
 #include <memory>
 
 namespace KWin
 {
+using NaturalSlidePaintResult = NaturalSwipe::MemberResult<decltype(&Effect::paintWindow)>;
 class NaturalSlideEffect;
 class NaturalSlideScreen
 {
@@ -31,6 +34,7 @@ public:
                      const Region &, WindowPaintData &);
     void postPaintScreen();
     bool isActive() const;
+    QJsonObject status() const;
     void desktopChanged(VirtualDesktop *old, VirtualDesktop *current, EffectWindow *with);
     void desktopChanging(VirtualDesktop *old, QPointF offset, EffectWindow *with);
     void desktopChangingCancelled();
@@ -43,18 +47,22 @@ private:
     bool slidesPanel(const EffectWindow *) const;
     void prepareSwitching();
     void startAnimation(QPointF oldPosition, VirtualDesktop *current, EffectWindow *moving = nullptr, bool returning = false);
+    QPointF animationPosition() const;
+    QPointF constrainGesturePosition(QPointF position) const;
     QPointF forcePositivePosition(QPointF position) const;
     QPointF constrainToDrawableRange(QPointF position) const;
     QPointF moveInsideDesktopGrid(QPointF position) const;
     void optimizePath();
     enum class State { Inactive, ActiveAnimation, ActiveGesture };
     State m_state = State::Inactive;
-    SpringMotion m_motionX;
-    SpringMotion m_motionY;
+    NaturalSwipe::SpringMotion m_motionX;
+    NaturalSwipe::SpringMotion m_motionY;
     QPointF m_startPos;
     QPointF m_endPos;
     QPointF m_gesturePos;
     QPointF m_position;
+    NaturalSwipe::GestureHandover m_handover;
+    quint64 m_windowPaints = 0;
     QList<VirtualDesktop *> m_visibleDesktops;
     EffectWindow *m_movingWindow = nullptr;
     AnimationClock m_clock;
@@ -73,7 +81,7 @@ private:
 class NaturalSlideEffect : public Effect
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.kde.KWin.NaturalSwipe")
+    Q_CLASSINFO("D-Bus Interface", "org.kde.KWin.NaturalDesktopSlide")
 public:
     NaturalSlideEffect();
     ~NaturalSlideEffect() override;
@@ -83,8 +91,9 @@ public:
     int requestedEffectChainPosition() const override { return 50; }
     void prePaintScreen(ScreenPrePaintData &) override;
     void postPaintScreen() override;
+    NaturalSlidePaintResult paintScreen(const RenderTarget &, const RenderViewport &, int, const Region &, LogicalOutput *) override;
     void prePaintWindow(RenderView *, EffectWindow *, WindowPrePaintData &) override;
-    bool paintWindow(const RenderTarget &, const RenderViewport &, EffectWindow *, int, const Region &, WindowPaintData &) override;
+    NaturalSlidePaintResult paintWindow(const RenderTarget &, const RenderViewport &, EffectWindow *, int, const Region &, WindowPaintData &) override;
     bool shouldSlidePanel(const EffectWindow *window) const;
     bool overscrollEnabled() const;
     bool overscrollSupported() const;
@@ -96,6 +105,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString panelSnapshot() const;
     Q_SCRIPTABLE QString configurationStatus() const;
     Q_SCRIPTABLE bool setOverscrollMode(const QString &mode);
+    void cancelGestureForOutput(const QString &outputName);
     void setGestureRelease(bool flick) { m_releaseFlick = flick; }
 private:
     void finishedSwitching();
@@ -115,6 +125,7 @@ private:
     QString m_gestureError;
     bool m_gestureReloadPending = false;
     bool m_releaseFlick = false;
+    LogicalOutput *m_paintOutput = nullptr; // Scoped to the current paintScreen call.
     std::map<LogicalOutput *, std::unique_ptr<NaturalSlideScreen>> m_screens;
 };
 }

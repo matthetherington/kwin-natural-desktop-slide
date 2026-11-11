@@ -1,74 +1,56 @@
-# KWin Virtual Desktop Natural Swipe
+# KWin Natural Desktop Slide
 
-Continuous desktop swipes for KDE Plasma Wayland, with selected panels sliding
-alongside desktops and other panels staying fixed.
+Switch between KDE Plasma desktops with a three-finger touchpad swipe. The
+animation follows your fingers, and you choose which panels slide with your
+desktop and which stay in place.
 
-- Three fingers initiate; horizontal two-finger follow-ups work until settling ends.
-- Reversible tracking, partial-swipe cancellation and velocity-based flick completion.
-- Resisted edge overscroll with a selectable solid colour or adjacent wallpaper.
-- Shared KDE/standalone settings, including an RGB/hex and HSL colour picker.
+You can also customise the animation speed and the background shown when you
+swipe past the last desktop. Panels keep the same contents on every desktop.
 
-**Experimental: KWin 6.8.2 only; gesture control currently requires one display.**
-InputActions is optional. Save your work before live testing: a compositor crash can end the
-Wayland session. Stock Slide is never replaced.
-Not Mac-specific, but only Fedora Asahi has been live-tested. See
-[portability and KDE Store readiness](docs/COMPATIBILITY.md).
+## Before you try it
 
-## Build and install
+**This is experimental software. Save your work before turning it on:** a crash
+could close your desktop session and unsaved applications.
 
-Requires CMake 3.25+, a C++23 compiler, Qt 6 and matching KWin/KDE development
-packages. See [dependencies and build options](docs/DEVELOPMENT.md).
+- Requires **KDE Plasma on Wayland**, a compatible KWin version and a touchpad
+  with three-finger gesture support. KWin is the part of KDE that draws your desktop.
+- Only **Fedora Asahi with KWin 6.8.2** has been tested on a real desktop so far.
+  Apple hardware is not required, but other systems still need testing.
+- This is not a “Get New Effects” download. It needs a package built specifically
+  for your system. See [compatibility](docs/COMPATIBILITY.md) if you are unsure.
 
-```sh
-# Full build, including settings, controller and both renderers
-cmake -S . -B build-controller -DCMAKE_BUILD_TYPE=Debug \
-  -DBUILD_KWIN_EFFECT=ON -DENABLE_GESTURE_CONTROLLER=ON \
-  -DENABLE_SETTLING_UNDO=ON -DENABLE_OVERSCROLL_RENDERER=ON \
-  -DSWIPE_CONTROLLER_ID=kwin_natural_swipe_controller_preview17 \
-  -DOVERSCROLL_RENDERER_ID=kwin_natural_slide_preview4
-cmake --build build-controller --parallel 2
-ctest --test-dir build-controller --output-on-failure
+## Get started
 
-# Inspect destinations, then install (sudo may replace pkexec); no activation
-python3 tools/install-settings.py --all --build-dir build-controller --dry-run
-pkexec /usr/bin/python3 "$PWD/tools/install-settings.py" --all --build-dir "$PWD/build-controller"
-```
+1. Follow the [installation guide](docs/BINARY_PACKAGES.md) to find and install a
+   matching package from [GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases).
+   Packages are only available after their release checks pass. If there is no
+   match for your system, do not install a different one.
+2. Open **Natural Desktop Slide Settings** from your application menu. Choose
+   which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md).
+3. Save your work, open **Konsole** (KDE's terminal), and run:
 
-For updates within the same KWin session, use **fresh plugin identities**; KWin can
-cache old libraries. Do not change manifests during an active manual test or
-overwrite identities pinned by an installed startup service.
+   ```sh
+   natural-desktop-slide-session start
+   ```
 
-## Configure and try
-
-1. Fully reopen System Settings → **Animations** → virtual-desktop switching →
-   **Selective Panel Slide (Experimental)** → configuration. Alternatively, run
-   `build-controller/natural-swipe-config`.
-2. Add panels by clicking them, tick those that should slide, and save.
-3. In **Gestures and animation**, choose your background colour and other options,
-   then save. Black and the tuned gesture defaults remain the defaults.
-
-From stock Slide or the normal project renderer, with InputActions loaded **if
-installed** (systems without it use native KWin gesture handling):
+Try a horizontal three-finger swipe. To turn it off and restore your previous setup:
 
 ```sh
-python3 tools/effect-session.py overscroll-enable
-# Restore the original renderer and InputActions:
-python3 tools/effect-session.py overscroll-rollback
+natural-desktop-slide-session stop
 ```
 
-Use **Reload** after later settings changes. Picking/saving does not enable effects.
-The above activation is **session-only**. For an existing managed login setup, use
-[startup and service recovery](docs/STARTUP.md), not the manual activation commands.
-Never enable competing desktop-switching effects together.
+Installing the package does not turn it on or restart your desktop. KDE's original
+Slide effect is kept. For automatic startup, updates or removal, follow the
+[installation guide](docs/BINARY_PACKAGES.md).
 
-## More information
+## Help and more information
 
-- [Settings, defaults and diagnostics](docs/CONFIGURATION.md)
-- [Gesture behaviour and limitations](docs/GESTURES.md)
-- [Development and recovery](docs/DEVELOPMENT.md) · [Validation status](docs/PLAN.md)
+- [Settings and panel selection](docs/CONFIGURATION.md)
+- [How swipes work](docs/GESTURES.md)
+- [Compatibility and known limitations](docs/COMPATIBILITY.md)
+- [Startup and recovery](docs/STARTUP.md)
+- [All documentation](docs/README.md), including source builds and contributor guides
+- [Report a problem](https://github.com/matthetherington/kwin-natural-desktop-slide/issues)
 
-Copyright © 2026 Matt Hetherington. **GPL-2.0-or-later**; see [LICENSE](LICENSE).
-Compiled plugins carry KDE `KPlugin` metadata in `effect/*metadata.json` and
-`kcm/metadata.json`, including author, version, licence, repository and issue URLs.
-This is a native KWin plugin, not a Plasma applet/KPackage.
-See [upstream provenance](docs/UPSTREAM.md).
+Copyright © 2026 Matt Hetherington. Licensed under [GPL-2.0-or-later](LICENSE),
+with code adapted from KDE's Slide effect. See [credits and provenance](docs/UPSTREAM.md).

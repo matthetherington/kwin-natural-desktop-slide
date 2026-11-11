@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+# SPDX-FileCopyrightText: 2026 Matt Hetherington
+# SPDX-License-Identifier: GPL-2.0-or-later
+import sys
+sys.path.insert(0, "@NDS_PACKAGE_LIBEXEC@")
+from package_session import main
+sys.exit(main("@NDS_PACKAGE_DATA@/build-info.json"))

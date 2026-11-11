@@ -75,7 +75,7 @@ private Q_SLOTS:
         QCOMPARE(store.rules().size(), 1);
         QCOMPARE(store.rules()[0].action, PanelAction::Slide);
         QVERIFY(error.contains("rules[1].action"));
-        QVERIFY(!store.loadFile(QStringLiteral("/nonexistent/natural-swipe-config.json"), &error));
+        QVERIFY(!store.loadFile(QStringLiteral("/nonexistent/natural-desktop-slide-config.json"), &error));
         QCOMPARE(store.rules()[0].action, PanelAction::Slide);
         QVERIFY(store.reload(R"({"schemaVersion":1,"rules":[]})", &error));
         QVERIFY(store.rules().isEmpty());

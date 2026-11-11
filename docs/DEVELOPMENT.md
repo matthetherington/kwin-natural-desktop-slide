@@ -1,15 +1,32 @@
-# Development, installation and recovery
+# Development and source builds
 
-## Build options
+<!-- Intended audience: contributors and experienced users building from source. -->
 
-Use the full effect build from [README](../README.md) to test compositor and KDE
-integration. On Fedora, the main development packages are `cmake`, `gcc-c++`,
-`qt6-qtbase-devel`, `extra-cmake-modules`, matching `kwin-devel`,
-`kf6-kcoreaddons-devel` and `kf6-kcmutils-devel`. KWin's exported CMake target
-requires additional Qt/KDE/Wayland/graphics development dependencies and C++23.
-The effect is pinned to **KWin 6.8.2**; see [ABI notes](UPSTREAM.md).
+For a prebuilt package, use the [installation guide](BINARY_PACKAGES.md) instead.
+Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 
-Build just the picker, diagnostics and tests without KWin:
+## Requirements
+
+- Plasma Wayland with KWin **6.7.0–6.7.6 or 6.8.0–6.8.2**, matching development
+  headers and OpenGL rendering. X11 is unsupported. Rebuild against the exact
+  runtime's development packages after each KWin update.
+- CMake 3.25+, a C++23 compiler and Make or Ninja. Core/tools code uses C++20;
+  the installed KWin SDK determines the native plugin's compiler requirements.
+- Qt 6.5+ development packages (Core, DBus, Quick and Widgets), Extra CMake
+  Modules 6.26+, and KDE Frameworks 6.26+ CoreAddons and KCMUtils development packages.
+  The KWin SDK may require newer versions.
+- Python 3 for install/session helpers; administrator access for plugin installation.
+- A libinput/KWin-compatible touchpad for live gestures.
+
+See [distribution dependency examples](PORTABILITY.md#distribution-dependencies).
+Native builds/tests pass on KWin 6.7.4, 6.7.5 and 6.8.2; only 6.8.2 is
+live-validated. Other allowed versions are source-reviewed only. See
+[private ABI notes](UPSTREAM.md) and [validation status](PLAN.md).
+
+## Build and test
+
+Run these commands from the repository root. Standalone validation does **not**
+compile the compositor plugins:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
@@ -17,119 +34,127 @@ cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
 ```
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `BUILD_KWIN_EFFECT` | OFF | Compile the pinned compositor plugin. |
-| `BUILD_CONFIGURATOR` | ON | Standalone Qt Widgets panel picker. |
-| `BUILD_SETTINGS_MODULE` | ON | KDE module, when effect and configurator are built. |
-| `BUILD_DIAGNOSTIC` | ON | Read-only CLI diagnostics; live discovery needs `kscreen-doctor`. |
-| `ENABLE_GESTURE_OBSERVER` | OFF | Build a separate passive probe plugin; no animation control. |
-| `ENABLE_GESTURE_CONTROLLER` | OFF | Build the separate opt-in input owner/animation bridge. |
-| `ENABLE_SETTLING_UNDO` | OFF | Continuous finger-scroll follow-ups while settling; historical option name. |
-| `ENABLE_OVERSCROLL_RENDERER` | OFF | Build a separately identified wallpaper/solid-colour overscroll preview renderer. |
-| `BUILD_TESTING` | ON | Qt tests and, if Python 3 is available, helper tests. |
-
-For Core/Test-only builds, disable configurator and diagnostic. Tests requiring
-widgets use Qt's offscreen backend; they do not load an effect into KWin. Build
-outputs and private diagnostic/backup files stay in ignored `build*/` and `local/`.
-
-## Layout
-
-- `effect/`: Slide-derived rendering, transitions and D-Bus diagnostics.
-- `src/`: Qt Core configuration/matching/picker model, shared widget UI and CLIs.
-- `kcm/`: KDE configuration-module wrapper around the same UI.
-- `tests/`: policy, parser, CLI, UI layout, metadata, ABI and helper tests.
-- `tools/`: guarded session switching and atomic installation using CMake/KDE paths.
-
-Keep gesture recognition separate from panel policy. Preserve the renderer's
-`desktopChanging`, completion and cancellation paths when adding a controller.
-The [gesture tracker/probe](GESTURES.md) can be installed independently of the
-renderer using `tools/install-settings.py --probe-only` from `build-observer`.
-
-## Installation and updates
-
-For the complete build/installation use [README](../README.md). For normal-renderer
-or settings-only development, build/test `build-effect`, then run from the repository root:
+For a full effect/KCM build, also run:
 
 ```sh
-pkexec /usr/bin/python3 "$PWD/tools/install-settings.py"
+cmake -S . -B build-effect -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=ON
+cmake --build build-effect --parallel 2
+ctest --test-dir build-effect --output-on-failure
 ```
 
-Review the installer before granting privileges. It checks installed KWin's
-version using `kwin_wayland --version` (no RPM dependency), reads the generated
-CMake install layout and atomically installs only the selected project components.
-Default normal-build paths on the original Fedora machine are:
+Neither build installs plugins or changes your running desktop. Report standalone,
+full-effect and live compositor testing separately.
 
-```text
-/usr/lib64/qt6/plugins/kwin/effects/plugins/kwin_natural_slide.so
-/usr/lib64/qt6/plugins/kwin/effects/configs/kwin_natural_slide_config.so
-```
+`BUILD_KWIN_EFFECT` defaults OFF. Configurator, diagnostic and settings-module
+options default ON, as do `ENABLE_GESTURE_CONTROLLER` and `ENABLE_SETTLING_UNDO`
+(the historical name for continuous follow-ups). `ENABLE_GESTURE_OBSERVER` is OFF.
+Overscroll is included in the single renderer; there is no separate preview target.
 
-Files are staged beside their destinations and renamed, never truncated in
-place. Already running processes may retain the **old** library mapping/factory;
-installation does not hot-reload code. Reopen System Settings for updated metadata.
-For renderer updates, plan an approved reload/login test; never assume unloading
-an effect unloads its shared library. Do not restart Wayland KWin over unsaved work.
+For same-session development, use fresh `_dev1`/`_dev2` suffixes through
+`DESKTOP_SLIDE_RENDERER_ID` and `DESKTOP_SLIDE_CONTROLLER_ID`. Never assume file
+replacement/unloading discards cached libraries. Do not install multiple
+development renderers into a normal user setup.
 
-The module is advertised only when built. The standalone picker remains usable
-without it. Opening settings, installing files and saving panel rules do not
-enable an effect or modify InputActions. Keep stock Slide installed.
+## Isolated multi-output integration tests (approval required)
 
-For a settings-UI-only update after building `build-effect`, use
-`pkexec /usr/bin/python3 "$PWD/tools/install-settings.py" --settings-only`.
-This replaces only the project KCM, not any renderer/controller. Fully close and
-reopen System Settings to avoid its cached KCM library. The new standalone editor
-can instead run straight from the build directory, without installation.
-
-Use `--build-dir` for a custom build location, `--all` for a complete full build,
-`--dry-run` for a read-only preview or `--destdir` for unprivileged package staging.
-See [portability and packaging](COMPATIBILITY.md). Never install into a Qt plugin
-directory belonging to a container rather than the running host compositor.
-
-## Session testing
-
-Save your work and keep a rollback terminal ready. Do not load both Slide effects.
+These launch separate headless KWin processes with software OpenGL, private XDG
+directories and a separate D-Bus session. They never install plugins or address
+the host compositor. Test hooks are compiled out by default; the installer refuses
+integration-driver builds. Do not load these plugins in a normal session.
 
 ```sh
-python3 tools/effect-session.py status
-python3 tools/effect-session.py enable    # Requires stock Slide to be loaded
-python3 tools/effect-session.py rollback # Unloads custom effect, restores stock
+cmake -S . -B build-integration -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_KWIN_EFFECT=ON -DENABLE_INTEGRATION_DRIVER=ON \
+  -DDESKTOP_SLIDE_RENDERER_ID=kwin_natural_desktop_slide_devintegration \
+  -DDESKTOP_SLIDE_CONTROLLER_ID=kwin_natural_desktop_slide_controller_devintegration
+cmake --build build-integration --parallel 2
+ctest --test-dir build-integration --output-on-failure
+python3 tests/nested_session_test.py --build-dir build-integration --outputs 2
+python3 tests/nested_session_test.py --build-dir build-integration --outputs 3
 ```
 
-The helper verifies each transition and attempts rollback on load failure. It
-does not write `kwinrc`. KDE's effect checkbox, unlike this helper, can change
-startup preferences. Confirm matching with [diagnostics](CONFIGURATION.md), then
-test transitions manually; a successful D-Bus response does not prove rendering.
+The harness requires `kwin_wayland`, `dbus-run-session`, `qdbus-qt6` (or `qdbus6`/
+`qdbus`) and writable `/tmp/opencode`. Window-paint counters check rendering paths,
+not pixel correctness. Physical display/GPU/HDR and real-device testing remain needed.
 
-For the separate overscroll preview, use the [gesture guide](GESTURES.md#overscroll-renderer-preview).
-Its recovery command is `python3 tools/effect-session.py overscroll-rollback`:
-this unloads the controller, restores InputActions, then restores the renderer
-saved before the preview. `controller-rollback` alone intentionally leaves the
-renderer unchanged and is not the complete overscroll-test rollback. Schedule
-automatic recovery with `overscroll-rollback` for those tests. Emergency `rollback`
-unloads all discoverable preview renderers and restores stock Slide instead.
+## Install a source build
+
+Inspect destinations before authorising installation:
+
+```sh
+python3 tools/install-settings.py --all --build-dir build-effect --dry-run
+pkexec /usr/bin/python3 "$PWD/tools/install-settings.py" --all --build-dir "$PWD/build-effect"
+```
+
+The installer uses CMake/KDE paths and verifies `kwin_wayland --version`. Other
+modes: `--settings-only`, `--runtime-only`, `--controller-only`, `--probe-only`;
+select the correct `--build-dir`. `--destdir` stages for packaging without root.
+It never restarts KWin or activates effects. If `pkexec` is unavailable, use `sudo`.
+Select `--config Debug`/`Release` for multi-configuration builds. CMake generates
+`install-layout-<configuration>.json` with actual target files and KDE paths;
+reconfigure old build trees before using the installer.
+
+For staging without root or host runtime-version checks:
+
+```sh
+python3 tools/install-settings.py --all --build-dir build-effect --destdir "$PWD/stage"
+```
+
+Use distribution packages/layering on immutable systems. A custom prefix or a
+Flatpak's plugin directory is not automatically a host KWin plugin path. See
+[packaging constraints](MAINTAINERS.md#distribution-constraints).
+
+Normal plugin IDs are `kwin_natural_desktop_slide`,
+`kwin_natural_desktop_slide_config` and `kwin_natural_desktop_slide_controller`.
+The optional diagnostic probe is `kwin_natural_desktop_slide_probe`.
+
+## Configure and try a source build
+
+1. Open `build-effect/natural-desktop-slide-config`, or fully reopen System Settings
+   → **Animations** → virtual-desktop switching → **Natural Desktop Slide
+   (Experimental)** → configuration on KWin 6.8.
+2. Follow the [settings guide](CONFIGURATION.md) to pick panels and save.
+3. **Save your work.** A compositor crash can end the Wayland session.
+4. Start from stock Slide or the project renderer. If InputActions is installed,
+   leave it loaded for the guarded handoff. Disable other conflicting gesture tools.
+5. Run as your normal desktop user, **not** with `sudo`:
+
+   ```sh
+   python3 tools/effect-session.py start --build-dir build-effect
+   ```
+
+Try a horizontal three-finger swipe. To restore the recorded renderer and input owner:
+
+```sh
+python3 tools/effect-session.py stop
+```
+
+Use the editor's reload controls after saving later changes. Saving does not enable
+effects. This manual activation is session-only; for an existing source-installed
+login service, use [startup and recovery](STARTUP.md) instead. Do not mix its
+private baseline with source-tree test state or enable competing desktop-switching
+effects together.
+
+### Updating code in the same session
+
+KWin can cache loaded libraries even after unloading an effect. Use fresh renderer
+and controller identities for same-session development, or log out/in before
+trying replacements. Do not change build manifests during an active manual test,
+overwrite startup-pinned identities or install multiple development renderers in
+a normal setup. See [gesture internals](GESTURE_INTERNALS.md) for comparison modes
+and input diagnostics.
 
 ## Recovery
 
-For the installed persistent login setup, first use the
-[service recovery instructions](STARTUP.md#restore-the-original-setup):
-`systemctl --user disable --now natural-swipe-session.service` restores its saved
-renderer and InputActions. Its private recovery state is separate from manual
-timed-test state in this repository.
-
-If the GUI is unusable but KWin responds, switch to a text console with
-Ctrl+Alt+F3, log in as the same user, and run:
-
 ```sh
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
-export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
-python3 ~/Code/kwin-virtual-desktop-natural-swipe/tools/effect-session.py rollback
+# Managed login setup:
+systemctl --user disable --now natural-desktop-slide-session.service
+# Manual source-tree test only:
+python3 tools/effect-session.py stop     # Restore recorded renderer/input owner
+python3 tools/effect-session.py rollback # Emergency: restore stock Slide
 ```
 
-The helper cannot recover a crashed/unresponsive compositor. The plugin is
-disabled by default, but if you enabled it persistently through KDE Settings,
-disable it there or set `kwin_natural_slideEnabled=false` in the `[Plugins]`
-group of `~/.config/kwinrc` before the next login. Do not repeatedly restart KWin
-over unsaved work. Before uninstalling project files, confirm the custom effect
-is unloaded; never remove stock KWin plugins. Actual crash recovery/uninstallation
-have not been live-tested.
+Do not mix the installed service's private baseline with source-tree test state.
+Never run competing animations/controllers. Helpers cannot recover a crashed or
+unresponsive compositor. Save work before live tests. See [startup/migration](STARTUP.md).
+Private captures/backups belong under ignored `local/`, builds under `build*/`.

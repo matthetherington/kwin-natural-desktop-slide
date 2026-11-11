@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Matt Hetherington
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=Natural Desktop Slide renderer and gesture handoff
+After=plasma-kwin_wayland.service
+PartOf=graphical-session.target
+ConditionEnvironment=XDG_SESSION_TYPE=wayland
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=XDG_RUNTIME_DIR=%t
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=%t/bus
+ExecStart=@KDE_INSTALL_FULL_BINDIR@/natural-desktop-slide-session start
+ExecStop=@KDE_INSTALL_FULL_BINDIR@/natural-desktop-slide-session stop
+TimeoutStartSec=120
+TimeoutStopSec=90
+
+[Install]
+WantedBy=graphical-session.target

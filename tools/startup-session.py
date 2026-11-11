@@ -18,12 +18,12 @@ def read_config(path):
     config = json.loads(Path(path).read_text())
     if set(config) != {"schemaVersion", "controllerId", "rendererId", "stateFile"} or config["schemaVersion"] != 1:
         raise RuntimeError("Invalid startup configuration schema")
-    if not isinstance(config["controllerId"], str) or not re.fullmatch(r"kwin_natural_swipe_controller(?:_[a-zA-Z0-9]+)?", config["controllerId"]):
+    if not isinstance(config["controllerId"], str) or not re.fullmatch(r"kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?", config["controllerId"]):
         raise RuntimeError("Invalid pinned controller identity")
-    if not isinstance(config["rendererId"], str) or not re.fullmatch(r"kwin_natural_slide_preview[0-9]+", config["rendererId"]):
+    if not isinstance(config["rendererId"], str) or not re.fullmatch(r"kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?", config["rendererId"]):
         raise RuntimeError("Invalid pinned renderer identity")
     state = Path(config["stateFile"])
-    if not state.is_absolute() or state.name != "overscroll-renderer-session.json":
+    if not state.is_absolute() or state.name != "renderer-session.json":
         raise RuntimeError("Invalid startup recovery state path")
     return config
 
@@ -32,7 +32,7 @@ def create_effects(config):
     # Install a private snapshot beside this script, avoiding a dependency on the
     # working tree or its changing CMake manifests at the next login.
     helper = Path(__file__).with_name("effect-session.py")
-    spec = importlib.util.spec_from_file_location("natural_swipe_startup_effects", helper)
+    spec = importlib.util.spec_from_file_location("natural_desktop_slide_startup_effects", helper)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.CONTROLLER = config["controllerId"]
@@ -57,7 +57,7 @@ class StartupSession:
             return None
         baseline = json.loads(state.read_text())
         original = baseline.get("renderer")
-        if original not in ("slide", "kwin_natural_slide"):
+        if original not in ("slide", "kwin_natural_desktop_slide"):
             raise RuntimeError("Invalid original renderer in startup recovery state")
         if type(baseline.get("inputActions", True)) is not bool:
             raise RuntimeError("Invalid input owner in startup recovery state")
@@ -73,7 +73,7 @@ class StartupSession:
         inputactions = self.effects.loaded("kwin_gestures")
         if renderers == [self.config["rendererId"]] and controllers == [self.config["controllerId"]] and not inputactions:
             return "active", "Pinned renderer/controller already active"
-        if (len(renderers) == 1 and renderers[0] in ("slide", "kwin_natural_slide") and not controllers
+        if (len(renderers) == 1 and renderers[0] in ("slide", "kwin_natural_desktop_slide") and not controllers
                 and (inputactions or "kwin_gestures" not in known)):
             return "original", renderers[0]
         return "waiting", "Waiting for one original renderer and the installed gesture owner (InputActions, if present)"
@@ -135,7 +135,7 @@ def main():
         print(getattr(session, args.action)(), flush=True)
         return 0
     except (Exception, KeyboardInterrupt) as error:
-        print("Natural Swipe startup: " + (str(error) or "interrupted; recovery attempted"), file=sys.stderr, flush=True)
+        print("Natural Desktop Slide startup: " + (str(error) or "interrupted; recovery attempted"), file=sys.stderr, flush=True)
         return 1
 
 

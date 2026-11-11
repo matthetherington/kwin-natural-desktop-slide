@@ -1,11 +1,11 @@
 {
   "KPlugin": {
-    "Id": "kwin_natural_slide_config",
-    "Name": "Selective Panel Slide — Panels and Gestures",
+    "Id": "kwin_natural_desktop_slide_config",
+    "Name": "Natural Desktop Slide — Panels and Gestures",
     "Description": "Choose sliding panels and configure swipe gestures, overscroll and animation",
     "Authors": [{"Name": "Matt Hetherington"}],
-    "Website": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe",
-    "BugReportUrl": "https://github.com/matthetherington/kwin-virtual-desktop-natural-swipe/issues",
+    "Website": "https://github.com/matthetherington/kwin-natural-desktop-slide",
+    "BugReportUrl": "https://github.com/matthetherington/kwin-natural-desktop-slide/issues",
     "License": "GPL-2.0-or-later",
     "Version": "0.1.0",
     "Icon": "preferences-desktop-virtual"

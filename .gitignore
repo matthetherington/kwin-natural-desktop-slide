@@ -3,6 +3,7 @@
 /CMakeUserPresets.json
 /Testing/
 /stage/
+/dist/
 
 # Editors
 /.idea/

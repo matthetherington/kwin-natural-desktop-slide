@@ -19,7 +19,7 @@ private Q_SLOTS:
         // opening the UI neither talks to KWin nor reads/writes panel config.
         const KPluginMetaData metadata(QStringLiteral(SETTINGS_MODULE_PATH));
         QVERIFY(metadata.isValid());
-        QCOMPARE(metadata.pluginId(), QString("kwin_natural_slide_config"));
+        QCOMPARE(metadata.pluginId(), QString("kwin_natural_desktop_slide_config"));
         const auto result = KPluginFactory::instantiatePlugin<KCModule>(metadata);
         QVERIFY2(result.plugin, qPrintable(result.errorString));
         std::unique_ptr<KCModule> module(result.plugin);
