@@ -13,19 +13,13 @@ swipe past the last desktop. Panels keep the same contents on every desktop.
 
 ## Demos
 
-### Desktop switching — fast and slow swipes
+### Desktop switching demo - fast and slow swipes (27 seconds, 4.5 MB)
 
-[![Watch fast and slow touchpad swipes switching between desktops](docs/media/desktop-swiping.jpg)](docs/media/desktop-swiping.mp4)
+https://github.com/user-attachments/assets/8ca0e43f-6843-4bbf-bb82-18d7ace9e889
 
-[Watch the desktop-switching demo](docs/media/desktop-swiping.mp4) (27 seconds, 4.5 MB).
+### Edge overscroll demo - resistance and spring-back (7 seconds, 0.9 MB)
 
-### Edge overscroll — resistance and spring-back
-
-[![Watch overscroll at the desktop edge](docs/media/overscroll.jpg)](docs/media/overscroll.mp4)
-
-[Watch the overscroll demo](docs/media/overscroll.mp4) (7 seconds, 0.9 MB).
-
-Click either preview to watch. Both videos are 1280 × 800 at 30 fps.
+https://github.com/user-attachments/assets/56e87ffb-8fc6-4faf-9516-d3742101d9f3
 
 ## Before you try it
 
