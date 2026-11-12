@@ -70,22 +70,22 @@ duplicate JSON keys: Qt retains only their last occurrence.
 
 ## Gestures and animation settings
 
-The shared standalone/KDE editor now has **Panels** and **Gestures and animation**
+The shared standalone/KDE editor has **Panels** and **Gestures and animation**
 tabs. Gesture settings live separately in
 `~/.config/kwin-natural-desktop-slide/gestures.json` (respecting `XDG_CONFIG_HOME`), so panel
-rules and their schema are unchanged. With `--config`, this tab edits `gestures.json`
+rules use their own schema. With `--config`, this tab edits `gestures.json`
 beside the chosen panel file; live reload refuses a different runtime path.
 
 Do not look for the renderer in Desktop Effects on KWin 6.8: that page explicitly
 excludes `desktop-animations`, which is handled by Animations. The exclusive group
 must remain intact to prevent running stock Slide and this renderer together.
 Development controller entries are input helpers, not the settings entry; do not
-enable them individually through KDE while InputActions is in use. Historical
-fresh plugin identities remain installed until explicitly retired; rollback unloads
+enable them individually through KDE while InputActions is in use. Development
+plugin files remain installed until explicitly removed; rollback unloads
 effects but never uninstalls their files. Fully reopen System Settings after KCM
 updates or plugin-file cleanup to refresh its metadata cache.
 
-All tuned values remain defaults. A missing file means defaults and is not created
+A missing file uses the defaults below and is not created
 automatically. Saving is explicit and atomic, with backup/conflict/symlink checks.
 Invalid reloads retain the entire previous valid configuration. **Restore
 defaults** only stages values; it does not save or change active effects.
@@ -110,17 +110,18 @@ The solid background has an **RGB/hex colour picker with additional HSL controls
 Choose **Solid colour**, select a colour, then save and reload explicitly. Cancel
 discards the selection. Wallpaper mode retains the solid colour for later use.
 `overscrollColor` is an opaque `#RRGGBB` string, defaulting to `#000000` when absent
-from older files. The historical `overscrollBackground: "black"` value now means
-solid colour; `"wallpaper"` retains the adjacent-wallpaper mode. Alpha is not supported.
+from older files. For compatibility, `overscrollBackground: "black"` selects
+solid colour; `"wallpaper"` selects adjacent wallpaper. Alpha is not supported.
 
-New colour settings require matching renderer **and** controller builds. Older
-strict schema-1 parsers reject the added property; the editor refuses to reload
-either component if colour support is missing. Do not save with the new editor
-until those builds are installed if the older setup must survive a restart.
+Colour settings require renderer **and** controller builds with colour support.
+Older strict schema-1 parsers reject `overscrollColor`; the editor refuses to
+reload either component if colour support is missing. When upgrading an older
+setup, install matching builds before saving colour settings so the configuration
+remains readable after a restart.
 
 Unknown keys, wrong types, non-finite or out-of-range values reject the whole
 reload. Three fingers, ±45° acquisition, axis locking and the velocity estimator
-are intentionally not exposed as tuning controls in this slice.
+are not exposed as tuning controls.
 
 Settings do not change tracking halfway through a gesture or settling chain.
 Controller contexts snapshot them; renderer changes defer until idle. Speed
@@ -130,14 +131,14 @@ animation factor. Fast-switch speed and flick recognition are independent.
 
 Use **Save gesture settings**, then **Apply saved settings**. Applying preflights
 component support and paths, never enables plugins,
-and refuses older cached libraries without this feature. Overscroll is included
+and refuses cached libraries without settings-reload support. Overscroll is included
 in the one project renderer; input settings need the controller. Stock Slide and
 InputActions bindings are never configured here.
 
 Temporary developer comparison commands override the saved background only until
 renderer reload/unload; enabling without `--background` uses saved settings.
 Saved gesture files persist after rollback; effect recovery never discards the
-user's saved choices. See [validation status](PLAN.md) for test coverage.
+user's saved choices. See [validation coverage](PLAN.md) for test scope.
 
 When [login startup](STARTUP.md) is installed, stop/disable its user service for
 recovery instead of using the timed manual-test helper's separate baseline file.

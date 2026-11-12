@@ -6,8 +6,8 @@ For installation instructions, see [the package guide](BINARY_PACKAGES.md).
 
 ## Release workflow
 
-The automation follows the tag/version/changelog/checksum pattern used by
-`plasma-panel-in-background`, but builds native packages separately for every SDK.
+Release automation checks tags, versions, changelog entries and checksums, and
+builds native packages separately for every SDK.
 See [release.yml](../.github/workflows/release.yml) and
 [targets.json](../packaging/targets.json).
 
@@ -49,7 +49,7 @@ Unsigned-package installation overrides belong only in disposable CI containers,
 never in user instructions.
 
 Before publishing, confirm that the public documentation distinguishes package
-build targets, available assets and live-tested systems. See [recorded validation](PLAN.md).
+build targets, available assets and live-tested systems. See [validation coverage](PLAN.md).
 
 ## Build a native package
 

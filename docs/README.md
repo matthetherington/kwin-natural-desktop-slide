@@ -22,7 +22,7 @@ if you are new here.
 | [Gesture internals](GESTURE_INTERNALS.md) | Developers investigating input ownership, tracking and diagnostic probes. |
 | [Portability](PORTABILITY.md) | Porters and hardware testers: distribution dependencies, touchpad capabilities and test reporting. |
 | [Maintaining and releasing](MAINTAINERS.md) | Maintainers and packagers: release automation, signing, packaging and wider-support checklist. |
-| [Status and remaining validation](PLAN.md) | Contributors planning work or checking recorded test coverage. |
+| [Features, validation and remaining work](PLAN.md) | Contributors and testers checking feature scope, test coverage and validation limits. |
 | [Upstream provenance](UPSTREAM.md) | Contributors and licence reviewers: adapted code, credits and private KWin API dependencies. |
 
 See also the [changelog](../CHANGELOG.md) and [licence](../LICENSE).

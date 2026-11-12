@@ -1,148 +1,105 @@
-# Status and remaining validation
+# Features, validation and remaining work
 
-<!-- Intended audience: contributors and maintainers tracking implementation and recorded validation. -->
+<!-- Intended audience: contributors and testers checking feature scope and validation limits. -->
 
-This is a development record, not an installation or support promise.
-For user-facing guidance, start with [compatibility](COMPATIBILITY.md).
+This page describes implemented features and the limits of their validation, not
+an installation or support promise. For system requirements, start with
+[compatibility](COMPATIBILITY.md).
 
-## Implemented
+## Feature scope
 
-- One Slide-derived renderer with selective Plasma panel movement and a shared
-  standalone/KDE settings editor.
-- Source settings installs include the standalone app and application-menu launcher,
-  using the same entry points and CMake/KDE destinations as release packages.
-  Runtime-only installs still leave settings components untouched.
-- Beginner-facing settings feedback uses short summaries with optional technical
-  details rather than raw JSON. Both tabs explain Save/Apply, block applying
-  unsaved edits, and use simpler labels; gesture help is visible inline and
-  dependent controls are disabled without losing their values.
-- Reversible three-finger tracking, 30% slow completion, velocity-based flicks and
-  repeatable horizontal finger-scroll follow-ups until settling finishes.
-- Position-continuous visual handover when a new gesture interrupts a settling
-  switch, partial return or edge bounce; release decisions remain input-based.
-- Resisted edge overscroll, defaulting to **10%**, with spring return and a solid
-  colour or moving adjacent wallpaper. Explicitly saved limits are preserved.
-- Independent animation-speed settings, atomic configuration saves, diagnostics,
-  guarded session handoff/recovery and a pinned systemd login service.
-- Audience-based documentation: a short public README, separate user guides and
-  technical references, a complete source-build guide and a dedicated maintainer
-  release guide. [Documentation index](README.md) maps each guide to its audience.
-- Public README includes titled desktop-switching and overscroll screencasts,
-  compressed to 1280 × 800 / 30 fps H.264 MP4 with linked image previews, and
-  describes the macOS (OS X)-like touchpad behaviour.
-- Multi-output shared preview/switching and independent-output targeting, with
-  pinned follow-ups, scoped cancellation and topology/scale/transform invalidation.
-- Output-local painting, including windows intersecting more than one output.
-- Source-reviewed KWin 6.7.0–6.7.6 / 6.8.0–6.8.2 allowlist, legacy/modern
-  paint/input/output-result adapters and exact build/runtime guards.
-- Project-owned spring solver removes the private SpringMotion layout/export
-  dependency while preserving the native trajectory and handover physics.
-- Native RPM/DEB/Arch package generation, disabled-by-default user integration,
-  tag/version/changelog release checks, checksums and complete-matrix release gates.
-  Target matrix: Fedora 45, Debian sid, Ubuntu 26.10 (x86_64/ARM64), Arch (x86_64).
-  Package publishing has not been run on GitHub yet; see [BINARY_PACKAGES.md](BINARY_PACKAGES.md).
+- Selective Plasma panel movement, with shared panel contents across desktops.
+- A shared standalone/System Settings editor for panel choices, gestures and
+  animation settings, with explicit saving and applying, atomic saves and backups.
+- Reversible three-finger tracking, slow-swipe completion, velocity-based flicks
+  and horizontal finger-scroll follow-ups while the animation settles.
+- Position-continuous handover when a gesture interrupts a switch, partial return
+  or edge bounce; release decisions use the new gesture's input.
+- Resisted edge overscroll with spring return, a configurable solid colour or
+  moving adjacent wallpaper, and independent animation-speed controls.
+- Shared multi-output switching and independent-output targeting, with follow-ups
+  pinned to their original output and cancellation when the output context changes.
+- Guarded activation, login startup and recovery that preserve stock Slide and
+  do not edit InputActions bindings.
+- Native RPM, DEB and Arch package generation, exact KWin build/runtime guards,
+  signing/checksum checks and release gates covering every declared package target.
 
-## Validation boundary
+See [gestures](GESTURES.md), [settings](CONFIGURATION.md) and
+[release packaging](MAINTAINERS.md) for behaviour and usage details.
 
-CI layout portability follow-up: reproduced Debian 13 / Qt 6.8.2 ARM64's exact
-10-pixel horizontal overflow at 540 × 360 with 18-point text. The overflow checkbox
-now uses a shorter label while preserving its full explanation. Wrapped labels
-also enforce their height-for-width minimum after width/font/style changes to
-avoid Qt 6.8 form-row underallocation. Coverage retains the zero-horizontal-scroll
-and unclipped-text assertions and adds DejaVu Sans and live font-change cases.
-All 23 standalone suites pass in an isolated Debian 13 ARM64 / Qt 6.8.2 container
-with GCC 14 and Clang 19. Host Qt 6.11.2 builds pass 23 standalone and 27 effect
-suites. Hosted x86_64/Ubuntu Qt 6.8.3 reruns remain pending; no host installation
-or live compositor changes were made.
+## Validation coverage
 
-Gesture-help layout follow-up: explanations use full-width form rows with explicit
-height-for-width sizing, rather than nested spin-box-width fields. The edge section
-is titled **Overflow settings**. Regression coverage checks full-width, unclipped
-help and non-overlapping rows at multiple window widths and normal/large fonts.
-All 23 standalone and 27 effect-build suites pass, including narrow large-font
-layouts without horizontal scrolling. No host installation or live compositor
-testing was performed for this follow-up.
+### Real desktop
 
-Settings UX: 23 standalone and 27 effect-build suites pass locally, including
-success/error/deferred/malformed diagnostic summaries, collapsed technical details,
-unsaved-apply guards, dependent controls and small/normal/tall window layout checks.
-Both standalone and KCM binaries were rebuilt. No host installation or live
-compositor reload was performed for this change.
+Physical desktop validation is limited to **Fedora Asahi, aarch64, KWin 6.8.2
+Wayland**. It covers panel selection and sliding, tracking and reversal, aborted
+swipes, flick completion, continuous follow-ups, blocked-edge grace, solid black
+overscroll and moving adjacent wallpaper. Reboot/login and suspend/resume have
+also been reported working on that system. These results do not establish
+cross-system lifecycle or hardware support.
 
-Settings-entry-point parity: 22 standalone and 26 effect-build suites pass locally.
-Private staging verifies matching settings-module, standalone-app and menu-launcher
-bytes/permissions between the source installer and CMake/package install rules.
-No host installation, effect activation or live compositor testing was performed
-for this change.
+### Native builds and standalone tests
 
-Live-tested on Fedora Asahi, aarch64, KWin 6.8.2 Wayland: panel selection/sliding,
-tracking/reversal/aborts, flick completion, continuous follow-ups, blocked-edge
-grace, black overscroll and moving adjacent wallpaper. Runtime rename/activation
-and migrated settings paths were verified without restarting KWin.
-The user subsequently reported successful reboot/login and suspend/resume on that
-same system. Cross-system lifecycle validation remains outstanding.
+Native ARM64 SDK builds and automated tests cover Fedora 45 / KWin 6.8.2,
+Debian sid / KWin 6.7.4 and Ubuntu 26.10 / KWin 6.7.5. Standalone core, UI and
+tool tests also run without compiling or loading compositor plugins, including
+Debian 13 / Qt 6.8.2 with GCC 14 and Clang 19.
 
-Automated coverage includes policy, configuration, input models, overscroll
-geometry, colour selection, UI layout, metadata, ABI and mocked install/recovery.
-See [compatibility](COMPATIBILITY.md) and [publication constraints](MAINTAINERS.md).
-New work is built in external temporary directories. The user accepted the live
-`devlive20261111p1` renderer/controller test and approved making it the login default.
-The installed service now pins those tested binaries and adopted the running pair
-without unloading/reloading effects. Its managed recovery baseline restores stock
-Slide and the prior gesture owner. Saved panel/gesture settings and kwinrc were
-verified unchanged; this build's subsequent reboot/login validation remains pending.
-The reported panel-edge line also occurs with stock Slide, disappears with Blur
-disabled, and is avoided by the user's change from 170% to 175% scaling; no renderer
-workaround was introduced. Standalone coverage includes output-context invalidation
-and native-reference spring trajectories. Isolated two-/three-output KWin 6.8.2
-tests cover shared/independent previews, commits, aborts, fractional scaling,
-layout-change cancellation and per-output window-paint calls. They use software
-OpenGL and synthetic input, not physical monitor/device validation. Host loaded
-effects and saved settings are unchanged. Native ARM64 container builds now also
-pass against Debian sid KWin 6.7.4 and Ubuntu 26.10 KWin 6.7.5 SDKs; no live desktop
-validation has been done on those releases. Other allowlisted versions remain
-source-reviewed only.
+Automated coverage includes:
 
-Latest packaging validation: **22 standalone suites** and **26 full package-build
-suites** pass. Debian/Ubuntu ARM64 packages also install and pass CLI smoke tests
-in isolated containers; Fedora ARM64 RPM generation and unsigned container-only
-installation/CLI smoke tests pass. RPM publishing requires a dedicated signing key.
-RPM signing and final signature/asset verification were tested in an Ubuntu 24.04
-container with an ephemeral fixture key; the tested binary payload was unchanged.
-Release infrastructure remains unpublished; x86_64/Arch jobs await hosted CI.
-The first hosted standalone GCC jobs passed; Clang jobs exposed alias-template
-deduction in a panel-policy test. Using explicit `QVector<PanelRule>` fixes it.
-Local Clang 19.1.7 / Qt 6.8.2 ARM64 builds now pass with widgets ON (22 suites)
-and OFF (19 suites); GCC passes both configurations too. Hosted Clang reruns remain
-pending after pushing the fix.
-The previous **24 integration-build suites** and both virtual-output integration
-runs passed before packaging-only changes; no compositor painting/input code changed.
-Production and integration renderers have no dynamic `KWin::SpringMotion`
-references. Exact runtime mismatch refusal is covered by automated tests.
-Portability tests exercise legacy/modern adapter contracts and synthetic touchpad
-event rates, coalescing, sensitivity and direction. CI now defines Debian/Fedora
-core jobs on native x86_64/ARM64 runners and a Fedora x86_64 effect build; hosted
-results are pending. Distribution dependencies/touchpad tuning are documented in
-[PORTABILITY.md](PORTABILITY.md).
-Debian 13 ARM64 container validation passes all **21** standalone suites using
-GCC 14.2 / Qt 6.8.2. A non-UTF-8 minimal-container locale exposed a diagnostic
-stderr-test assumption; tests now set a deterministic UTF-8 locale. The
-no-widgets/no-diagnostic build also passes all **18** applicable suites locally.
+- Panel policy, configuration validation, backups and atomic saves.
+- Input tracking, velocity, release decisions, gesture handover and output-context
+  invalidation, using synthetic event streams rather than physical touchpads.
+- Spring trajectories compared with KWin's solver, settling and gesture handover.
+- Overscroll geometry, colour selection and legacy/modern KWin API adapters.
+- Settings feedback, unsaved-edit guards, dependent controls and layouts at
+  narrow window sizes and larger fonts.
+- Plugin metadata, ABI guards, source/package settings-install parity and mocked
+  activation/recovery failures.
 
-## Outstanding
+Standalone tests do not compile compositor code. Full effect/KCM builds and
+their tests are a separate validation step; see [build commands](DEVELOPMENT.md#build-and-test).
 
-- Broader stress testing of gesture handover, including rapid reversals/aborts;
-  initial live gesture/visual testing was accepted by the user.
-- Visual testing of configurable colours, HDR, scaling, transforms and interrupted
-  return animations; broader speed tuning, wrapping, blur, shadows and popups.
-- Actual compositor-crash recovery; reboot/login and suspend/resume on other systems.
+### Isolated compositor tests
+
+Two- and three-output KWin 6.8.2 tests cover shared and independent previews,
+commits, aborts, fractional scaling, layout-change cancellation and per-output
+window-paint calls. They use software OpenGL and synthetic input. They check
+rendering paths, not pixel correctness, physical monitors or device behaviour.
+See [isolated integration tests](DEVELOPMENT.md#isolated-multi-output-integration-tests-approval-required).
+
+### Packaging and version review
+
+ARM64 Debian/Ubuntu and Fedora packages have container-only installation and CLI
+smoke-test coverage. RPM signing and final asset verification have fixture-key
+coverage; a production release requires a dedicated signing key and successful
+checks for every declared target. Local package tests do not establish that
+published assets exist or that all hosted CI targets pass. Consult
+[GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases)
+for available downloads and their per-asset manifests.
+
+The reviewed source-version range is **KWin 6.7.0–6.7.6 and 6.8.0–6.8.2**.
+Versions without native build or desktop testing remain source-reviewed only.
+Every binary requires its exact build-time KWin runtime; distribution patches
+can require additional review. See [upstream dependencies](UPSTREAM.md).
+
+## Remaining validation and work
+
+- Stress testing of rapid gesture handovers, reversals and aborts.
+- Broader visual testing of configurable colours, animation speeds, wrapping,
+  interrupted returns, blur, shadows and popups.
+- Physical multi-display/GPU/connector testing, including fractional scaling,
+  rotated/HDR outputs, colour management and hotplug timing.
+- Actual compositor-crash recovery and lifecycle testing on other systems.
 - Live desktops on other distributions, x86_64 hardware and non-Apple touchpads.
-- Physical multi-display/GPU/connector validation, rotated/HDR outputs and real
-  hotplug timing; broader gesture follow-up/handover integration scenarios.
-- Live runtime validation on KWin 6.7; build/runtime validation on remaining
-  source-reviewed versions including 6.8.0/1; a larger port for 6.6 or
-  earlier, and further private-API reduction.
+- Live KWin 6.7 validation and native build/runtime testing of the remaining
+  source-reviewed versions.
+- A separate port for KWin 6.6 or earlier, and further reduction of private-API
+  dependencies.
 
 Finger-scroll events cannot prove contact count or provide palm rejection.
-Panel matching is geometry-based and needs
-re-picking after layout changes. Each binary remains tied to its exact KWin build.
+Geometry-based panel matching requires re-picking after layout changes. These
+are current limitations, not guarantees that broader testing will remove them.
+See [portability](PORTABILITY.md) for hardware-test reporting and
+[maintainer checks](MAINTAINERS.md#before-claiming-wider-support) before claiming
+support for another system.

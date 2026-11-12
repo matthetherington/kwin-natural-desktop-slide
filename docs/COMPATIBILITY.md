@@ -27,7 +27,7 @@ before downloading. Do not force an incompatible package to install.
 
 Release build targets also include x86_64 and other distributions. A target is
 not a promise that a download exists or has been tested on physical hardware.
-Detailed test records and pending CI checks are in [project status](PLAN.md).
+See [validation coverage](PLAN.md) for test scope and remaining work.
 
 ## Updates need care
 

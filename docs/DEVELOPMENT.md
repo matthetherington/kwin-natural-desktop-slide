@@ -21,7 +21,7 @@ Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 See [distribution dependency examples](PORTABILITY.md#distribution-dependencies).
 Native builds/tests pass on KWin 6.7.4, 6.7.5 and 6.8.2; only 6.8.2 is
 live-validated. Other allowed versions are source-reviewed only. See
-[private ABI notes](UPSTREAM.md) and [validation status](PLAN.md).
+[private ABI notes](UPSTREAM.md) and [validation coverage](PLAN.md).
 
 ## Build and test
 

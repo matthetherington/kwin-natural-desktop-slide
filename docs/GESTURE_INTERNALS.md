@@ -101,7 +101,7 @@ Status includes latest admission/release/interruption reasons, counters,
 follow-up/edge-window state, progress, velocity and settings. It is not a complete
 event trace and cannot establish a driver's palm classification.
 
-An optional passive `InputEventSpy` probe remains useful for input-routing work:
+An optional passive `InputEventSpy` probe helps diagnose input routing:
 
 ```sh
 cmake -S . -B build-observer -DBUILD_KWIN_EFFECT=ON -DENABLE_GESTURE_OBSERVER=ON

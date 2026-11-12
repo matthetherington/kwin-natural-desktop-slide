@@ -66,6 +66,7 @@ Slide effect is kept. For automatic startup, updates or removal, follow the
 - [Settings and panel selection](docs/CONFIGURATION.md)
 - [How swipes work](docs/GESTURES.md)
 - [Compatibility and known limitations](docs/COMPATIBILITY.md)
+- [Feature scope and validation coverage](docs/PLAN.md)
 - [Startup and recovery](docs/STARTUP.md)
 - [All documentation](docs/README.md), including source builds and contributor guides
 - [Report a problem](https://github.com/matthetherington/kwin-natural-desktop-slide/issues)
