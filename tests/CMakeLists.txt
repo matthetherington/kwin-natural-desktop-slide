@@ -29,6 +29,8 @@ add_swipe_test(api_compat swipe_tracker)
 add_swipe_test(touchpad_portability swipe_tracker)
 
 if(BUILD_CONFIGURATOR)
+    add_swipe_test(settings_feedback configurator_ui)
+    set_tests_properties(settings_feedback PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_swipe_test(configurator_layout configurator_ui)
     set_tests_properties(configurator_layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_swipe_test(gesture_configurator configurator_ui)
@@ -81,6 +83,10 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
+    if(TARGET kwin_natural_desktop_slide_config AND NOT ENABLE_INTEGRATION_DRIVER)
+        add_test(NAME settings_entry_points COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/settings_entry_points_test.py"
+            --build-dir "${PROJECT_BINARY_DIR}" --config "$<CONFIG>")
+    endif()
     if(BUILD_DISTRIBUTION_PACKAGE)
         add_test(NAME package_payload COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/package_payload_test.py"
             --build-dir "${PROJECT_BINARY_DIR}")

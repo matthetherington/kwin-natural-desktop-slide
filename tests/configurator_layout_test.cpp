@@ -14,6 +14,24 @@ class ConfiguratorLayoutTest : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void applyingUnsavedPanelChoicesDoesNotContactKWin()
+    {
+        std::unique_ptr<QWidget> window(NaturalSwipe::createPanelConfigurator("/unused/panels.json"));
+        auto remove = window->findChild<QPushButton *>("removePanelChoice");
+        auto table = window->findChild<QTableWidget *>("panelChoices");
+        auto apply = window->findChild<QPushButton *>("reloadPanelEffect");
+        auto status = window->findChild<QLabel *>("pickerStatus");
+        QVERIFY(remove && table && apply && status);
+        QVERIFY(!remove->isEnabled());
+        table->insertRow(0);
+        auto choice = new QTableWidgetItem;
+        choice->setCheckState(Qt::Checked);
+        table->setItem(0, 0, choice);
+        apply->click();
+        QVERIFY(status->text().contains("Save your panel choices"));
+        QVERIFY(!status->text().contains('{'));
+    }
+
     void statusGrowsDownward_data()
     {
         QTest::addColumn<QSize>("windowSize");

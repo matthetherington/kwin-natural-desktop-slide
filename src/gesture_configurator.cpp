@@ -3,6 +3,7 @@
 #include "configurator.h"
 #include "gesture_settings.h"
 #include "color_picker.h"
+#include "settings_feedback.h"
 #include <QPixmap>
 #include <QIcon>
 #include <QCheckBox>
@@ -28,9 +29,28 @@ namespace NaturalSwipe
 {
 namespace
 {
-bool reloadActiveSettings(const QString &path, QString &message)
+QLabel *helpText(const QString &text, const QString &name = {})
+{
+    auto label = new QLabel(text);
+    label->setObjectName(name);
+    label->setWordWrap(true);
+    label->setTextFormat(Qt::PlainText);
+    // Preserve height-for-width after setting the size policy. Otherwise forms
+    // allocate a single-line height even when the text wraps at larger fonts.
+    QSizePolicy policy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    policy.setHeightForWidth(true);
+    label->setSizePolicy(policy);
+    return label;
+}
+
+bool reloadActiveSettings(const QString &path, QString &message, QString &details)
 {
     QDBusInterface effects("org.kde.KWin", "/Effects", "org.kde.kwin.Effects");
+    if (!effects.isValid()) {
+        message = "Could not contact the desktop effect. Settings were not applied. See Technical details.";
+        details = effects.lastError().message();
+        return false;
+    }
     const auto loaded = effects.property("loadedEffects").toStringList();
     const QRegularExpression renderer("^kwin_natural_desktop_slide(?:_dev[a-zA-Z0-9]+)?$");
     const QRegularExpression controller("^kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?$");
@@ -40,7 +60,10 @@ bool reloadActiveSettings(const QString &path, QString &message)
         if (controller.match(name).hasMatch()) controllers.append(name);
     }
     if (renderers.size() != 1 || controllers.size() > 1) {
-        message = "Exactly one configurable project renderer must be active. Nothing enabled or reloaded; settings remain saved.";
+        message = renderers.isEmpty()
+            ? "Natural Desktop Slide is not running. Your saved settings will be used next time it starts. Nothing was turned on."
+            : "More than one desktop effect or gesture helper is running. Settings were not applied. See Technical details.";
+        details = "Renderers: " + renderers.join(", ") + "\nGesture helpers: " + controllers.join(", ");
         return false;
     }
     struct Component { QString id, path, interface, status; };
@@ -51,36 +74,50 @@ bool reloadActiveSettings(const QString &path, QString &message)
     for (const auto &component : components) {
         QDBusInterface diagnostic("org.kde.KWin", component.path, component.interface);
         QDBusReply<QString> reply = diagnostic.call(component.status);
+        details += component.id + ":\n" + (reply.isValid() ? reply.value() : reply.error().message()) + "\n";
         const auto object = reply.isValid() ? QJsonDocument::fromJson(reply.value().toUtf8()).object() : QJsonObject{};
         const auto currentPath = object["gesturePath"].toString();
         if (currentPath.isEmpty() || QFileInfo(currentPath).absoluteFilePath() != QFileInfo(path).absoluteFilePath()) {
-            message = "The active component either lacks gesture-settings support or reads another file: " + component.id
-                + ". Nothing reloaded. A matching new build is required; installation alone may not replace cached code.";
+            message = "The running effect uses a different settings file or an incompatible version. "
+                "Settings were not applied. See Technical details.";
+            details += "Editor settings file: " + path;
             return false;
         }
         // Older schema-1 builds reject the new property. Check every component
         // before reloading either, rather than partially applying a new file.
         if (!object["configuredSettings"].toObject().contains("overscrollColor")
             && !object["gestureSettings"].toObject().contains("overscrollColor")) {
-            message = "The active component lacks configurable colour support: " + component.id
-                + ". Nothing reloaded; install matching renderer/controller builds and start a fresh approved session.";
+            message = "The running effect needs a matching update to support these settings. "
+                "Settings were not applied. See Technical details.";
             return false;
         }
     }
     bool deferred = false;
     for (const auto &component : components) {
         const auto reply = effects.call("reconfigureEffect", component.id);
-        if (reply.type() == QDBusMessage::ErrorMessage) { message = "Reload failed: " + reply.errorMessage(); return false; }
+        if (reply.type() == QDBusMessage::ErrorMessage) {
+            message = "Could not finish applying settings. Some components may already have updated. See Technical details.";
+            details += reply.errorMessage();
+            return false;
+        }
         QDBusInterface diagnostic("org.kde.KWin", component.path, component.interface);
         QDBusReply<QString> status = diagnostic.call(component.status);
-        if (!status.isValid()) { message = "Reload requested, but verification failed: " + status.error().message(); return false; }
-        const auto object = QJsonDocument::fromJson(status.value().toUtf8()).object();
-        if (!object["gestureError"].toString().isEmpty()) { message = "Previous valid settings retained: " + object["gestureError"].toString(); return false; }
-        deferred |= object["settingsDeferred"].toBool();
+        if (!status.isValid()) {
+            message = "Settings were sent, but could not be verified. See Technical details.";
+            details += status.error().message();
+            return false;
+        }
+        details += "After applying — " + component.id + ":\n" + status.value() + "\n";
+        const auto feedback = summarizeSettingsReload(status.value(), true);
+        if (!feedback.success) {
+            message = "Could not verify that all gesture and animation settings were applied. Some components may already have updated. See Technical details.";
+            return false;
+        }
+        deferred |= feedback.deferred;
     }
-    message = deferred ? "Reload queued until the current transition fully settles; new settings start with a new gesture."
-        : "Saved gesture settings reloaded in the active project components.";
-    if (controllers.isEmpty()) message += " The gesture controller is not active; this did not enable it.";
+    message = deferred ? "Settings received. They will take effect after the current desktop animation finishes."
+        : "Gesture and animation settings applied.";
+    if (controllers.isEmpty()) message += " The gesture helper is not running, so input changes will take effect when it starts. Nothing was turned on.";
     return true;
 }
 
@@ -98,30 +135,34 @@ public:
         auto layout = new QVBoxLayout(contents);
         layout->setSizeConstraint(QLayout::SetMinimumSize);
         layout->setAlignment(Qt::AlignTop);
-        auto note = new QLabel("Three fingers initiate desktop control. These settings never enable an effect or change InputActions bindings. "
-                               "Overscroll is included in the renderer; gesture controls require the project controller.");
-        note->setWordWrap(true);
-        note->setTextFormat(Qt::PlainText);
-        note->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+        auto note = helpText("Start a desktop swipe with three fingers. The defaults are a good starting point. "
+                               "After making changes, Save gesture settings, then Apply saved settings. "
+                               "This page does not turn the effect on or change your gesture bindings.");
         layout->addWidget(note);
         auto group = [layout](const QString &title) {
             auto box = new QGroupBox(title);
+            QSizePolicy policy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+            policy.setHeightForWidth(true);
+            box->setSizePolicy(policy);
             auto form = new QFormLayout(box);
             form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+            form->setRowWrapPolicy(QFormLayout::DontWrapRows);
             layout->addWidget(box);
             return form;
         };
-        auto swipe = group("Swipe recognition and completion");
+        auto swipe = group("Swipe sensitivity");
         addNumber(swipe, "Slow-swipe completion", "slowSwipeThreshold", 5, 95, 1, " %",
                   "Release at or beyond this progress to switch. Below it, slow swipes return. Quick flicks use the speed rule instead.");
         addNumber(swipe, "Movement per desktop", "distancePerDesktop", 50, 1500, 0, " units",
                   "Lower values make the same finger movement travel farther. These are input units, not screen pixels.");
         addNumber(swipe, "Minimum flick speed", "flickVelocity", 0.1, 20, 2, " desktops/s",
                   "Speed required for short flicks to complete. This controls recognition, not animation speed.");
-        auto overscroll = group("Edge overscroll");
-        m_overscroll = new QCheckBox("Allow resisted movement past the first/last desktop");
+        auto overscroll = group("Overflow settings");
+        overscroll->parentWidget()->setObjectName("overflowSettings");
+        m_overscroll = new QCheckBox("Allow movement past desktop edges");
         m_overscroll->setObjectName("overscrollEnabled");
         overscroll->addRow(m_overscroll);
+        overscroll->addRow(helpText("Allow a little resisted movement when swiping past the first or last desktop.", "overflowHelp"));
         addNumber(overscroll, "Maximum overscroll", "overscrollLimit", 1, 50, 1, " %",
                   "Maximum fraction of the desktop revealed beyond an edge. Resistance approaches this limit gradually.");
         m_background = new QComboBox;
@@ -132,76 +173,76 @@ public:
         m_color = new QPushButton;
         m_color->setObjectName("overscrollColor");
         m_color->setToolTip("Choose an opaque background colour using RGB, hexadecimal or HSL controls.");
-        overscroll->addRow("Solid background colour", m_color);
+        overscroll->addRow("Background colour", m_color);
         connect(m_color, &QPushButton::clicked, this, [this]() {
             const auto color = selectOverscrollColor(QColor(m_colorValue), this);
             if (!color.isValid()) return;
             setColor(color.name(QColor::HexRgb));
             changed();
         });
-        auto animations = group("Release animation speeds");
+        auto animations = group("Release animation speed");
         addNumber(animations, "Normal switch speed", "settleSpeed", 0.1, 4, 2, " ×",
-                  "Higher values settle faster. 1× preserves the tuned animation and KDE's global animation factor.");
+                  "Higher values finish faster. 1× uses the recommended speed and respects KDE's global animation speed.");
         addNumber(animations, "Fast-flick switch speed", "flickSettleSpeed", 0.1, 4, 2, " ×",
                   "Independent speed for same-direction fast-flick releases. Does not change flick recognition or finger tracking.");
         addNumber(animations, "Abort / bounce-back speed", "returnSpeed", 0.1, 4, 2, " ×",
                   "Speed of partial-swipe return and edge bounce, independent of switch speed.");
         auto followups = group("Two-finger follow-ups");
-        m_followups = new QCheckBox("Allow horizontal finger-scroll swipes until settling finishes");
+        m_followups = new QCheckBox("Allow two-finger follow-ups");
         m_followups->setObjectName("followups");
         m_followups->setToolTip("Three fingers still initiate. During this window ordinary horizontal trackpad scrolling controls desktops; vertical scrolling passes through.");
         followups->addRow(m_followups);
+        followups->addRow(helpText("After starting with three fingers, continue switching with two fingers while the animation finishes.", "followupsHelp"));
         m_edgeGrace = new QSpinBox;
         m_edgeGrace->setObjectName("edgeGraceMs");
         m_edgeGrace->setRange(0, 1500);
         m_edgeGrace->setSingleStep(50);
         m_edgeGrace->setSuffix(" ms");
         m_edgeGrace->setToolTip("Entry window after a blocked edge swipe with no animation (for example with overscroll disabled). Zero disables this exception.");
-        followups->addRow("No-animation edge window", m_edgeGrace);
-        auto defaults = new QPushButton("Restore tuned gesture defaults (stage only)");
+        followups->addRow("Edge follow-up window", m_edgeGrace);
+        auto edgeHelp = helpText("When a swipe at the first or last desktop produces no animation, allow a two-finger follow-up for this long. Set to 0 to turn this exception off.", "edgeGraceHelp");
+        followups->addRow(edgeHelp);
+        auto defaults = new QPushButton("Restore defaults");
+        defaults->setToolTip("Reset the controls to their recommended defaults. Nothing is saved or applied until you choose Save and Apply.");
         defaults->setObjectName("restoreGestureDefaults");
         layout->addWidget(defaults);
-        auto reloadSaved = new QPushButton("Reload saved gesture settings");
+        auto reloadSaved = new QPushButton("Discard edits and reload saved settings");
         reloadSaved->setObjectName("reloadSavedGestureSettings");
         layout->addWidget(reloadSaved);
         m_save = new QPushButton("Save gesture settings");
         m_save->setObjectName("saveGestureSettings");
         layout->addWidget(m_save);
-        auto reload = new QPushButton("Reload settings in active renderer / controller");
+        auto reload = new QPushButton("Apply saved settings");
+        reload->setToolTip("Reload saved settings in the running effect and gesture helper. This does not turn them on.");
         reload->setObjectName("reloadGestureEffects");
         layout->addWidget(reload);
-        m_status = new QLabel;
-        m_status->setObjectName("gestureStatus");
-        m_status->setWordWrap(true);
-        m_status->setTextFormat(Qt::PlainText);
-        m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        m_status->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+        m_status = new SettingsFeedback("gestureStatus");
         layout->addWidget(m_status); // Always below controls: status growth cannot move buttons.
         scroll->setWidget(contents);
         outer->addWidget(scroll);
-        connect(m_overscroll, &QCheckBox::toggled, this, [this]() { changed(); });
-        connect(m_followups, &QCheckBox::toggled, this, [this]() { changed(); });
+        connect(m_overscroll, &QCheckBox::toggled, this, [this]() { updateAvailability(); changed(); });
+        connect(m_followups, &QCheckBox::toggled, this, [this]() { updateAvailability(); changed(); });
         connect(m_background, &QComboBox::currentIndexChanged, this, [this]() {
-            m_color->setEnabled(m_background->currentData() == "black");
+            updateAvailability();
             changed();
         });
         connect(m_edgeGrace, &QSpinBox::valueChanged, this, [this]() { changed(); });
         connect(defaults, &QPushButton::clicked, this, [this]() {
             setControls({});
             m_dirty = true;
-            m_status->setText("Tuned defaults staged. Save explicitly to replace saved gesture settings; panel rules are untouched.");
+            m_status->setText("Defaults restored in this editor. Save gesture settings, then Apply saved settings to use them. Panel choices are unchanged.");
         });
         connect(reloadSaved, &QPushButton::clicked, this, [this]() {
-            if (m_dirty && QMessageBox::question(this, "Discard gesture edits?", "Reload saved settings and discard staged edits?",
+            if (m_dirty && QMessageBox::question(this, "Discard gesture edits?", "Reload saved settings and discard your unsaved changes?",
                 QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
             read();
         });
         connect(m_save, &QPushButton::clicked, this, [this]() { save(); });
         connect(reload, &QPushButton::clicked, this, [this]() {
-            if (m_dirty) { m_status->setText("Save or discard staged gesture edits before reloading the active components."); return; }
-            QString message;
-            reloadActiveSettings(m_path, message);
-            m_status->setText(message);
+            if (m_dirty) { m_status->setText("Save your changes before applying them, or discard your edits to use the saved settings."); return; }
+            QString message, details;
+            reloadActiveSettings(m_path, message, details);
+            m_status->setText(message, details);
         });
         read();
     }
@@ -224,7 +265,15 @@ private:
         spin->setSingleStep(name == "distancePerDesktop" ? 10 : suffix == " %" ? 1 : 0.1);
         spin->setSuffix(suffix);
         spin->setToolTip(tip);
-        form->addRow(label, spin);
+        spin->setAccessibleName(label);
+        spin->setAccessibleDescription(tip);
+        spin->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        auto caption = helpText(label, name + "Label");
+        caption->setBuddy(spin);
+        form->addRow(caption, spin);
+        // A spanning row uses the available section width, not the spin box's
+        // compact size hint. Keep help outside a nested fixed-height field.
+        form->addRow(helpText(tip, name + "Help"));
         m_numbers.insert(name, spin);
         connect(spin, &QDoubleSpinBox::valueChanged, this, [this]() { changed(); });
     }
@@ -232,7 +281,15 @@ private:
     {
         if (m_loading) return;
         m_dirty = true;
-        if (m_status) m_status->setText("Gesture changes staged; nothing saved or applied yet.");
+        if (m_status) m_status->setText("Unsaved changes. Save gesture settings, then Apply saved settings.");
+    }
+    void updateAvailability()
+    {
+        const bool overscroll = m_overscroll->isChecked();
+        m_numbers["overscrollLimit"]->setEnabled(overscroll);
+        m_background->setEnabled(overscroll);
+        m_color->setEnabled(overscroll && m_background->currentData() == "black");
+        m_edgeGrace->setEnabled(m_followups->isChecked());
     }
     void setControls(const GestureSettings &s)
     {
@@ -250,6 +307,7 @@ private:
         m_color->setEnabled(s.overscrollBackground == "black");
         m_followups->setChecked(s.followups);
         m_edgeGrace->setValue(s.edgeGraceMs);
+        updateAvailability();
         m_loading = false;
     }
     GestureSettings controls() const
@@ -276,15 +334,23 @@ private:
         QByteArray original;
         if (m_existed) {
             QFile file(m_path);
-            if (!file.open(QIODevice::ReadOnly)) { m_save->setEnabled(false); m_status->setText(file.errorString()); return; }
+            if (!file.open(QIODevice::ReadOnly)) {
+                m_save->setEnabled(false);
+                m_status->setText("Could not read your saved settings. They have not been changed. See Technical details.", file.errorString());
+                return;
+            }
             original = file.readAll();
-            if (file.error() != QFileDevice::NoError) { m_save->setEnabled(false); m_status->setText(file.errorString()); return; }
+            if (file.error() != QFileDevice::NoError) {
+                m_save->setEnabled(false);
+                m_status->setText("Could not read your saved settings. They have not been changed. See Technical details.", file.errorString());
+                return;
+            }
         }
         GestureSettingsStore store;
         QString error;
         if (m_existed && !store.reload(original, &error)) {
             m_save->setEnabled(false);
-            m_status->setText("Invalid saved settings; refusing to overwrite them: " + error);
+            m_status->setText("The saved settings could not be read. Saving is disabled to protect them. See Technical details.", error);
             return;
         }
         m_original = original;
@@ -292,7 +358,8 @@ private:
         m_read = true;
         m_dirty = false;
         m_save->setEnabled(true);
-        m_status->setText((m_existed ? "Loaded gesture settings: " : "Using tuned defaults; no file created: ") + m_path);
+        m_status->setText(m_existed ? "Saved settings loaded. Changes are not saved or applied automatically."
+                                   : "Using recommended defaults. No settings file has been created.", "Settings file: " + m_path);
     }
     void save()
     {
@@ -300,14 +367,14 @@ private:
         QString error, backup;
         const auto settings = controls();
         if (!saveGestureSettings(m_path, m_existed, m_original, settings, &backup, &error)) {
-            m_status->setText("Settings not saved: " + error);
+            m_status->setText("Could not save settings. Your changes are still in this editor. See Technical details.", error);
             return;
         }
         m_original = QJsonDocument(gestureSettingsJson(settings)).toJson();
         m_existed = true;
         m_dirty = false;
-        m_status->setText("Gesture settings saved to " + m_path + (backup.isEmpty() ? QString() : "\nBackup: " + backup)
-            + "\nUse Reload to apply. Panel rules, enabled effects and InputActions are unchanged.");
+        m_status->setText("Gesture settings saved. Choose Apply saved settings to use them in the running effect.",
+                         "Settings file: " + m_path + (backup.isEmpty() ? QString() : "\nBackup: " + backup));
     }
     QString m_path;
     QByteArray m_original;
@@ -320,7 +387,7 @@ private:
     QString m_colorValue;
     QSpinBox *m_edgeGrace;
     QPushButton *m_save;
-    QLabel *m_status = nullptr;
+    SettingsFeedback *m_status = nullptr;
 };
 }
 

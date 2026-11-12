@@ -25,8 +25,11 @@ could close your desktop session and unsaved applications.
    matching package from [GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases).
    Packages are only available after their release checks pass. If there is no
    match for your system, do not install a different one.
-2. Open **Natural Desktop Slide Settings** from your application menu. Choose
-   which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md).
+2. Open **Natural Desktop Slide Settings** from your application menu. On KWin 6.8,
+   you can also open the same editor through **System Settings → Animations →
+   virtual-desktop switching → Natural Desktop Slide (Experimental) → configuration**.
+   Choose which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md).
+   If the effect is already running, choose **Apply saved settings** after saving.
 3. Save your work, open **Konsole** (KDE's terminal), and run:
 
    ```sh

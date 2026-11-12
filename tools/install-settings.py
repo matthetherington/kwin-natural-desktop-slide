@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Matt Hetherington
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Install this project's plugins atomically, without changing the running effect."""
+"""Install project plugins and settings entry points without changing the running effect."""
 import argparse
 import json
 import os
@@ -33,19 +33,20 @@ def atomic_write(destination, data, mode=0o755):
 
 
 def install(artifacts):
-    # Read/check everything first, before changing either file.
+    # Read/check everything first, before changing any file.
     pending = []
     for source, destination in artifacts:
         source, destination = Path(source), Path(destination)
         if destination.is_symlink() or (destination.exists() and not destination.is_file()):
-            raise RuntimeError("Refusing non-regular plugin destination: " + str(destination))
+            raise RuntimeError("Refusing non-regular installation destination: " + str(destination))
         previous = destination.read_bytes() if destination.exists() else None
         mode = destination.stat().st_mode & 0o777 if previous is not None else 0o755
-        pending.append((source.read_bytes(), destination, previous, mode))
+        new_mode = 0o644 if destination.suffix == ".desktop" else 0o755
+        pending.append((source.read_bytes(), destination, previous, mode, new_mode))
     installed = []
     try:
-        for data, destination, previous, mode in pending:
-            atomic_write(destination, data)
+        for data, destination, previous, mode, new_mode in pending:
+            atomic_write(destination, data, new_mode)
             installed.append((destination, previous, mode))
     except Exception:
         for destination, previous, mode in reversed(installed):
@@ -61,6 +62,8 @@ ROLE_NAMES = {
     "settings": r"kwin_natural_desktop_slide_config\.so",
     "controller": r"kwin_natural_desktop_slide_controller(?:_dev[a-zA-Z0-9]+)?\.so",
     "probe": r"kwin_natural_desktop_slide_probe\.so",
+    "configurator": r"natural-desktop-slide-config",
+    "launcher": r"natural-desktop-slide\.desktop",
 }
 SUPPORTED_KWIN_VERSIONS = json.loads((Path(__file__).resolve().parents[1] / "effect/compat/kwin-versions.json").read_text())["sourceBuildVersions"]
 
@@ -84,11 +87,23 @@ def build_artifacts(build_dir, roles, config=None, destdir=None):
     plugins = Path(layout["pluginDirectory"])
     if not plugins.is_absolute() or ".." in plugins.parts or plugins.parts[-2:] != ("kwin", "effects"):
         raise RuntimeError("Invalid KDE plugin directory in build layout")
+    directories = {"configurator": layout.get("binaryDirectory"), "launcher": layout.get("applicationDirectory")}
+    roles = list(roles)
+    if "settings" in roles:
+        roles.extend(["configurator", "launcher"])
+    for role, directory in directories.items():
+        if directory is None and role not in roles:
+            continue
+        if directory is None or not Path(directory).is_absolute() or ".." in Path(directory).parts:
+            raise RuntimeError("Missing or invalid settings application directory; reconfigure this build.")
+        directories[role] = Path(directory)
     if destdir is not None:
         staging = Path(destdir).resolve()
         if staging == Path("/"):
             raise RuntimeError("Refusing / as a staging root; use normal version-checked installation instead.")
         plugins = staging / plugins.relative_to(plugins.anchor)
+        directories = {role: staging / directory.relative_to(directory.anchor)
+                       for role, directory in directories.items() if directory is not None}
     artifacts = {}
     for entry in layout["artifacts"]:
         role, name = entry["role"], entry["name"]
@@ -97,7 +112,13 @@ def build_artifacts(build_dir, roles, config=None, destdir=None):
         source = Path(entry["source"])
         if not source.is_absolute() or source.name != name:
             raise RuntimeError("Invalid plugin source in build layout")
-        artifacts[role] = (source, plugins / ("configs" if role == "settings" else "plugins") / name)
+        if role in directories:
+            directory = directories[role]
+            if directory is None:
+                raise RuntimeError("Missing settings application directory; reconfigure this build.")
+        else:
+            directory = plugins / ("configs" if role == "settings" else "plugins")
+        artifacts[role] = (source, directory / name)
     missing = set(roles) - artifacts.keys()
     if missing:
         raise RuntimeError("Build does not include required components: " + ", ".join(sorted(missing)))
@@ -125,10 +146,10 @@ def main():
     mode.add_argument("--controller-only", action="store_true",
                       help="Install only the experimental owner from build-controller; leave renderer/KCM unchanged.")
     mode.add_argument("--runtime-only", action="store_true",
-                      help="Install renderer and controller without the settings module.")
+                       help="Install renderer and controller without the settings module or application.")
     mode.add_argument("--settings-only", action="store_true",
-                       help="Install only the settings module from build-effect; preserve all renderer/controller binaries.")
-    mode.add_argument("--all", action="store_true", help="Install renderer (including overscroll), settings and controller.")
+                        help="Install the settings module, standalone app and menu launcher; preserve renderer/controller binaries.")
+    mode.add_argument("--all", action="store_true", help="Install renderer, settings module/app/menu launcher and controller.")
     parser.add_argument("--build-dir", type=Path, help="CMake build directory (default follows the selected mode).")
     parser.add_argument("--config", help="Build configuration for multi-configuration generators.")
     parser.add_argument("--destdir", type=Path, help="Stage files for packaging; does not install into the live system or check its KWin version.")
@@ -163,13 +184,13 @@ def main():
     restorecon = shutil.which("restorecon")
     if restorecon and args.destdir is None:
         subprocess.run([restorecon, *(str(destination) for _, destination in artifacts)], check=True)
-    print("Staged project plugins for packaging." if args.destdir is not None
+    print("Staged selected project components." if args.destdir is not None
           else "Installed all project components from the selected build." if args.all
-          else "Installed settings module only; renderer/controller binaries preserved." if args.settings_only
+           else "Installed settings module, standalone app and menu launcher; renderer/controller binaries preserved." if args.settings_only
           else "Installed renderer and controller atomically." if args.runtime_only
           else "Installed experimental swipe controller atomically." if args.controller_only
           else "Installed passive swipe probe atomically." if args.probe_only
-          else "Installed the configuration module and updated effect metadata atomically.")
+           else "Installed settings module, standalone app, menu launcher and renderer atomically.")
     print("No KWin restart, effect toggles, or configuration writes performed.")
 
 

@@ -64,11 +64,17 @@ class SettingsInstallTest(unittest.TestCase):
         names = {"renderer": "kwin_natural_desktop_slide", "settings": "kwin_natural_desktop_slide_config",
                  "controller": "kwin_natural_desktop_slide_controller_devtest",
                  "probe": "kwin_natural_desktop_slide_probe"}
-        layout = {"schemaVersion": 1, "kwinVersion": "6.8.2", "pluginDirectory": plugins, "artifacts": []}
+        layout = {"schemaVersion": 1, "kwinVersion": "6.8.2", "pluginDirectory": plugins,
+                  "binaryDirectory": "/usr/bin", "applicationDirectory": "/usr/share/applications", "artifacts": []}
         for role, name in names.items():
             source = build / (name + ".so")
             source.write_bytes(b"mock plugin")
             layout["artifacts"].append({"role": role, "source": str(source), "name": source.name})
+        for role, name in (("configurator", "natural-desktop-slide-config"),
+                           ("launcher", "natural-desktop-slide.desktop")):
+            source = build / name
+            source.write_bytes(b"mock application")
+            layout["artifacts"].append({"role": role, "source": str(source), "name": name})
         path = build / "install-layout-Debug.json"
         path.write_text(json.dumps(layout))
         return path, layout
@@ -108,7 +114,43 @@ class SettingsInstallTest(unittest.TestCase):
                 artifacts = module.build_artifacts(root, ["settings", "renderer"], destdir=root / "stage")
                 self.assertEqual(artifacts[0][1], root / "stage" / prefix.lstrip("/") / "kwin/effects/configs/kwin_natural_desktop_slide_config.so")
                 module.install(artifacts)
-                self.assertTrue(all(destination.read_bytes() == b"mock plugin" for _, destination in artifacts))
+                self.assertTrue(all(destination.read_bytes() == source.read_bytes() for source, destination in artifacts))
+
+    def test_settings_include_both_entry_points_and_file_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_layout(root)
+            stage = root / "stage"
+            artifacts = module.build_artifacts(root, ["settings"], destdir=stage)
+            module.install(artifacts)
+            self.assertEqual({str(destination.relative_to(stage)) for _, destination in artifacts}, {
+                "usr/lib/x86_64-linux-gnu/qt6/plugins/kwin/effects/configs/kwin_natural_desktop_slide_config.so",
+                "usr/bin/natural-desktop-slide-config",
+                "usr/share/applications/natural-desktop-slide.desktop"})
+            self.assertEqual((stage / "usr/bin/natural-desktop-slide-config").stat().st_mode & 0o777, 0o755)
+            self.assertEqual((stage / "usr/share/applications/natural-desktop-slide.desktop").stat().st_mode & 0o777, 0o644)
+
+    def test_old_settings_layout_requires_reconfiguration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, layout = self.make_layout(root)
+            del layout["binaryDirectory"]
+            path.write_text(json.dumps(layout))
+            with self.assertRaisesRegex(RuntimeError, "reconfigure"):
+                module.build_artifacts(root, ["settings"])
+
+    def test_missing_application_preflight_preserves_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_layout(root)
+            artifacts = module.build_artifacts(root, ["settings"], destdir=root / "stage")
+            destination = artifacts[0][1]
+            destination.parent.mkdir(parents=True)
+            destination.write_bytes(b"old settings")
+            (root / "natural-desktop-slide-config").unlink()
+            with self.assertRaises(FileNotFoundError):
+                module.install(artifacts)
+            self.assertEqual(destination.read_bytes(), b"old settings")
 
     def test_invalid_manifest_cannot_target_stock_plugins(self):
         with tempfile.TemporaryDirectory() as directory:

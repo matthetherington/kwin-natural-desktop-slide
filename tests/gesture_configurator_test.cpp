@@ -11,6 +11,8 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFile>
+#include <QFormLayout>
+#include <QGroupBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
@@ -27,6 +29,100 @@ class GestureConfiguratorTest : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void helpUsesSectionWidthWithoutClipping_data()
+    {
+        QTest::addColumn<QSize>("size");
+        QTest::addColumn<int>("fontSize");
+        QTest::newRow("small") << QSize(540, 360) << 10;
+        QTest::newRow("normal") << QSize(720, 620) << 10;
+        QTest::newRow("large-text") << QSize(720, 620) << 18;
+        QTest::newRow("small-large-text") << QSize(540, 360) << 18;
+        QTest::newRow("wide-large-text") << QSize(1100, 800) << 18;
+    }
+
+    void helpUsesSectionWidthWithoutClipping()
+    {
+        QFETCH(QSize, size);
+        QFETCH(int, fontSize);
+        QTemporaryDir dir;
+        std::unique_ptr<QWidget> widget(createGestureConfigurator(dir.filePath("gestures.json")));
+        auto font = widget->font();
+        font.setPointSize(fontSize);
+        widget->setFont(font);
+        widget->resize(size);
+        widget->show();
+        QVERIFY(QTest::qWaitForWindowExposed(widget.get()));
+        auto overflow = widget->findChild<QGroupBox *>("overflowSettings");
+        QVERIFY(overflow);
+        QCOMPARE(overflow->title(), QString("Overflow settings"));
+
+        // Check both initial layout and relayout after changing the width.
+        for (const int width : {size.width(), size.width() + 240, size.width()}) {
+            widget->resize(width, size.height());
+            QCoreApplication::processEvents();
+            auto scroll = widget->findChild<QScrollArea *>("gestureScroll");
+            QVERIFY(scroll);
+            QTRY_COMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+            int count = 0;
+            for (auto help : widget->findChildren<QLabel *>()) {
+                if (!help->objectName().endsWith("Help")) continue;
+                ++count;
+                auto form = qobject_cast<QFormLayout *>(help->parentWidget()->layout());
+                QVERIFY(form);
+                int row;
+                QFormLayout::ItemRole role;
+                form->getWidgetPosition(help, &row, &role);
+                QCOMPARE(role, QFormLayout::SpanningRole);
+                QVERIFY(help->hasHeightForWidth());
+                QTRY_VERIFY2(help->height() >= help->heightForWidth(help->width()),
+                    qPrintable(QString("%1: %2x%3, required height %4, section %5x%6")
+                        .arg(help->objectName()).arg(help->width()).arg(help->height())
+                        .arg(help->heightForWidth(help->width()))
+                        .arg(help->parentWidget()->width()).arg(help->parentWidget()->height())));
+                const auto margins = form->contentsMargins();
+                QVERIFY(help->width() >= help->parentWidget()->contentsRect().width() - margins.left() - margins.right() - 2);
+                QVERIFY(help->parentWidget()->contentsRect().contains(help->geometry()));
+                auto next = form->itemAt(row + 1, QFormLayout::SpanningRole);
+                if (!next) next = form->itemAt(row + 1, QFormLayout::FieldRole);
+                if (next) {
+                    QVERIFY(help->geometry().bottom() < next->geometry().top());
+                }
+            }
+            QCOMPARE(count, 10); // Seven numeric explanations and three checkbox/edge hints.
+        }
+    }
+
+    void dependentControlsAndUnsavedApply()
+    {
+        QTemporaryDir dir;
+        const auto path = dir.filePath("gestures.json");
+        std::unique_ptr<QWidget> widget(createGestureConfigurator(path));
+        auto overscroll = widget->findChild<QCheckBox *>("overscrollEnabled");
+        auto limit = widget->findChild<QDoubleSpinBox *>("overscrollLimit");
+        auto background = widget->findChild<QComboBox *>("overscrollBackground");
+        auto color = widget->findChild<QPushButton *>("overscrollColor");
+        auto followups = widget->findChild<QCheckBox *>("followups");
+        auto grace = widget->findChild<QSpinBox *>("edgeGraceMs");
+        auto status = widget->findChild<QLabel *>("gestureStatus");
+        QVERIFY(overscroll && limit && background && color && followups && grace && status);
+        const auto originalLimit = limit->value();
+        overscroll->setChecked(false);
+        QVERIFY(!limit->isEnabled() && !background->isEnabled() && !color->isEnabled());
+        overscroll->setChecked(true);
+        QVERIFY(limit->isEnabled() && background->isEnabled() && color->isEnabled());
+        QCOMPARE(limit->value(), originalLimit);
+        followups->setChecked(false);
+        QVERIFY(!grace->isEnabled());
+        followups->setChecked(true);
+        QVERIFY(grace->isEnabled());
+        widget->findChild<QPushButton *>("reloadGestureEffects")->click();
+        QVERIFY(status->text().contains("Save your changes"));
+        QVERIFY(!QFile::exists(path));
+        widget->findChild<QPushButton *>("saveGestureSettings")->click();
+        QVERIFY(status->text().contains("Gesture settings saved"));
+        QVERIFY(!status->text().contains(path));
+    }
+
     void colorPickerHslRgbAndCancel()
     {
         QTimer::singleShot(0, []() {

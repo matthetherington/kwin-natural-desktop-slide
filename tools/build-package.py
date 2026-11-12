@@ -50,8 +50,9 @@ def checked_build(build):
             or not re.fullmatch(r"\d+\.\d+\.\d+", info.get("version", ""))):
         raise ValueError("Only a reviewed full production Release build may be packaged")
     expected = {"renderer": "kwin_natural_desktop_slide.so", "settings": "kwin_natural_desktop_slide_config.so",
-                "controller": "kwin_natural_desktop_slide_controller.so"}
-    if len(layout["artifacts"]) != 3 or {item["role"]: item["name"] for item in layout["artifacts"]} != expected:
+                 "controller": "kwin_natural_desktop_slide_controller.so",
+                 "configurator": "natural-desktop-slide-config", "launcher": "natural-desktop-slide.desktop"}
+    if len(layout["artifacts"]) != len(expected) or {item["role"]: item["name"] for item in layout["artifacts"]} != expected:
         raise ValueError("Unexpected/missing package plugin identities")
     if output("kwin_wayland", "--version") != "kwin " + info["kwinVersion"]:
         raise ValueError("Build/runtime KWin mismatch in packaging environment")

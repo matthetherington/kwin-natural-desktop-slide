@@ -11,8 +11,8 @@ You do not need to edit any files.
    Press Esc if you want to cancel.
 3. Tick **Slide** for panels that should move with the desktop. Leave it unticked
    for panels that should stay in place.
-4. Choose **Save all panel choices**.
-5. If the effect is already running, use **Reload configuration in active effect**
+4. Choose **Save panel choices**.
+5. If the effect is already running, use **Apply saved settings**
    to apply your saved choices.
 
 Panels stay fixed unless you select them. Their contents are shared across
@@ -35,14 +35,26 @@ Open **Gestures and animation**. Start with the defaults, then adjust as needed:
 - **Slow-swipe completion:** how far a slow swipe must go before it switches desktops.
 - **Minimum flick speed:** how fast a short swipe must be to count as a flick.
 - **Animation speeds:** how quickly the animation finishes after you release.
-- **Overscroll:** the gentle resistance when swiping past the first or last desktop.
+- **Overflow settings:** the gentle resistance when swiping past the first or last desktop.
   You can choose a solid background colour or moving wallpaper.
 - **Two-finger follow-ups:** continue switching with horizontal two-finger movement
   while the previous animation is finishing. Turn this off if it interferes with scrolling.
 
-Choose **Save gesture settings**, then **Reload settings in active renderer /
-controller** if the effect is running. **Restore tuned defaults** only changes the
+Choose **Save gesture settings**, then **Apply saved settings** if the effect is
+running. **Restore defaults** only changes the
 editor until you save and reload.
+
+## Saving and applying
+
+- **Save** keeps your choices for future use; it does not change the running effect.
+- **Apply saved settings** asks the running effect to use those saved choices.
+  Save or discard unsaved edits first. This never turns the effect on.
+- A short message tells you whether settings were applied, are waiting for an
+  animation to finish, or could not be applied. If the effect is not running,
+  saved settings will be used next time it starts.
+- **Technical details** expands optional diagnostic information, settings-file
+  locations and backup paths. You do not need these for normal use.
+- Controls that depend on a disabled option are greyed out; their values are kept.
 
 ## If something does not look right
 

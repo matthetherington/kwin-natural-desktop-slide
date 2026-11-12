@@ -9,6 +9,13 @@ For user-facing guidance, start with [compatibility](COMPATIBILITY.md).
 
 - One Slide-derived renderer with selective Plasma panel movement and a shared
   standalone/KDE settings editor.
+- Source settings installs include the standalone app and application-menu launcher,
+  using the same entry points and CMake/KDE destinations as release packages.
+  Runtime-only installs still leave settings components untouched.
+- Beginner-facing settings feedback uses short summaries with optional technical
+  details rather than raw JSON. Both tabs explain Save/Apply, block applying
+  unsaved edits, and use simpler labels; gesture help is visible inline and
+  dependent controls are disabled without losing their values.
 - Reversible three-finger tracking, 30% slow completion, velocity-based flicks and
   repeatable horizontal finger-scroll follow-ups until settling finishes.
 - Position-continuous visual handover when a new gesture interrupts a settling
@@ -33,6 +40,26 @@ For user-facing guidance, start with [compatibility](COMPATIBILITY.md).
   Package publishing has not been run on GitHub yet; see [BINARY_PACKAGES.md](BINARY_PACKAGES.md).
 
 ## Validation boundary
+
+Gesture-help layout follow-up: explanations use full-width form rows with explicit
+height-for-width sizing, rather than nested spin-box-width fields. The edge section
+is titled **Overflow settings**. Regression coverage checks full-width, unclipped
+help and non-overlapping rows at multiple window widths and normal/large fonts.
+All 23 standalone and 27 effect-build suites pass, including narrow large-font
+layouts without horizontal scrolling. No host installation or live compositor
+testing was performed for this follow-up.
+
+Settings UX: 23 standalone and 27 effect-build suites pass locally, including
+success/error/deferred/malformed diagnostic summaries, collapsed technical details,
+unsaved-apply guards, dependent controls and small/normal/tall window layout checks.
+Both standalone and KCM binaries were rebuilt. No host installation or live
+compositor reload was performed for this change.
+
+Settings-entry-point parity: 22 standalone and 26 effect-build suites pass locally.
+Private staging verifies matching settings-module, standalone-app and menu-launcher
+bytes/permissions between the source installer and CMake/package install rules.
+No host installation, effect activation or live compositor testing was performed
+for this change.
 
 Live-tested on Fedora Asahi, aarch64, KWin 6.8.2 Wayland: panel selection/sliding,
 tracking/reversal/aborts, flick completion, continuous follow-ups, blocked-edge

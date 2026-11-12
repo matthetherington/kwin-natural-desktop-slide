@@ -94,6 +94,13 @@ Select `--config Debug`/`Release` for multi-configuration builds. CMake generate
 `install-layout-<configuration>.json` with actual target files and KDE paths;
 reconfigure old build trees before using the installer.
 
+Like release packages, the default source install, `--all` and `--settings-only`
+install both settings entry points: the System Settings module and **Natural
+Desktop Slide Settings** in the application menu (the `natural-desktop-slide-config`
+command). `--settings-only` updates these without replacing renderer/controller
+binaries, including any development identities pinned by your startup service.
+Fully close and reopen System Settings after updating the module.
+
 For staging without root or host runtime-version checks:
 
 ```sh

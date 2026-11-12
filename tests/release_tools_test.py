@@ -107,7 +107,9 @@ class ReleaseToolsTest(unittest.TestCase):
             layout = {"integrationDriver": False, "kwinVersion": "6.8.2", "artifacts": [
                 {"role": "renderer", "name": "kwin_natural_desktop_slide.so"},
                 {"role": "controller", "name": "kwin_natural_desktop_slide_controller.so"},
-                {"role": "settings", "name": "kwin_natural_desktop_slide_config.so"}]}
+                {"role": "settings", "name": "kwin_natural_desktop_slide_config.so"},
+                {"role": "configurator", "name": "natural-desktop-slide-config"},
+                {"role": "launcher", "name": "natural-desktop-slide.desktop"}]}
             (root / "install-layout-Release.json").write_text(json.dumps(layout))
             with patch.object(package, "output", return_value="kwin 6.8.2"):
                 self.assertEqual(package.checked_build(root), info())

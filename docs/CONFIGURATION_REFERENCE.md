@@ -19,14 +19,16 @@ you can also use **Animations → virtual-desktop switching** in System Settings
 - **Add panel by clicking…** uses KWin's native window picker; Esc cancels. It
   works with stock Slide running. Only Plasma dock windows are accepted.
 - Each pick adds a Slide checkbox row. Re-picking selects its existing row without
-  resetting staged choices. Nothing changes until **Save all panel choices**.
+  resetting staged choices. Nothing changes until **Save panel choices**.
 - Saving prepends explicit slide/fixed overrides and preserves other rules.
   Smaller selected bounds take priority over enclosing bounds.
-- **Remove selected row** affects only the edit list, not previously saved rules.
+- **Remove from this list** affects only the edit list, not previously saved rules.
   To keep a panel fixed, untick Slide and save it.
-- **Reload saved rules** discards staged choices after confirmation and re-reads
-  external edits. **Reload configuration in active effect** applies saved rules
+- **Discard edits and reload saved choices** discards staged choices after confirmation and re-reads
+  external edits. **Apply saved settings** applies saved rules
   only if the custom effect is already loaded and reads the same file.
+- Applying refuses unsaved choices. Feedback uses plain-language summaries;
+  raw diagnostic replies and file/backup paths are available under **Technical details**.
 
 Existing files get sibling `.backup-…` copies before atomic saves. Invalid JSON,
 symlink files and externally modified files are not silently overwritten. Backups
@@ -85,7 +87,7 @@ updates or plugin-file cleanup to refresh its metadata cache.
 
 All tuned values remain defaults. A missing file means defaults and is not created
 automatically. Saving is explicit and atomic, with backup/conflict/symlink checks.
-Invalid reloads retain the entire previous valid configuration. **Restore tuned
+Invalid reloads retain the entire previous valid configuration. **Restore
 defaults** only stages values; it does not save or change active effects.
 
 | Control / JSON key | Default | Range / meaning |
@@ -126,8 +128,8 @@ multipliers scale spring time, not finger displacement, with fractional-time car
 for slow speeds/high refresh. 1× preserves the tuned animation and KDE's global
 animation factor. Fast-switch speed and flick recognition are independent.
 
-Use **Save gesture settings**, then **Reload settings in active renderer /
-controller**. Reload preflights component support and paths, never enables plugins,
+Use **Save gesture settings**, then **Apply saved settings**. Applying preflights
+component support and paths, never enables plugins,
 and refuses older cached libraries without this feature. Overscroll is included
 in the one project renderer; input settings need the controller. Stock Slide and
 InputActions bindings are never configured here.
