@@ -47,7 +47,11 @@ target_compile_options(kwin_natural_desktop_slide PRIVATE -Wall -Wextra -Wpedant
 target_link_options(kwin_natural_desktop_slide PRIVATE -Wl,--no-undefined)
 set_target_properties(kwin_natural_desktop_slide PROPERTIES PREFIX "" OUTPUT_NAME "${DESKTOP_SLIDE_RENDERER_ID}"
     CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
-install(TARGETS kwin_natural_desktop_slide DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins" COMPONENT effect)
+# Use the same non-executable plugin mode as the source installer, independent
+# of the distribution's CMAKE_INSTALL_SO_NO_EXE default.
+install(TARGETS kwin_natural_desktop_slide
+    LIBRARY DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins"
+    PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ COMPONENT effect)
 set(install_artifacts "{\"role\":\"renderer\",\"source\":\"$<TARGET_FILE:kwin_natural_desktop_slide>\",\"name\":\"${DESKTOP_SLIDE_RENDERER_ID}.so\"}")
 if(TARGET kwin_natural_desktop_slide_config)
     string(APPEND install_artifacts ",{\"role\":\"settings\",\"source\":\"$<TARGET_FILE:kwin_natural_desktop_slide_config>\",\"name\":\"kwin_natural_desktop_slide_config.so\"}")
@@ -71,7 +75,9 @@ if(ENABLE_GESTURE_CONTROLLER)
     target_link_options(kwin_natural_desktop_slide_controller PRIVATE -Wl,--no-undefined)
     set_target_properties(kwin_natural_desktop_slide_controller PROPERTIES PREFIX "" OUTPUT_NAME "${DESKTOP_SLIDE_CONTROLLER_ID}"
         CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
-    install(TARGETS kwin_natural_desktop_slide_controller DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins" COMPONENT controller)
+    install(TARGETS kwin_natural_desktop_slide_controller
+        LIBRARY DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins"
+        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ COMPONENT controller)
     string(APPEND install_artifacts ",{\"role\":\"controller\",\"source\":\"$<TARGET_FILE:kwin_natural_desktop_slide_controller>\",\"name\":\"${DESKTOP_SLIDE_CONTROLLER_ID}.so\"}")
 endif()
 if(ENABLE_GESTURE_OBSERVER)
@@ -81,7 +87,9 @@ if(ENABLE_GESTURE_OBSERVER)
     target_compile_options(kwin_natural_desktop_slide_probe PRIVATE -Wall -Wextra -Wpedantic)
     target_link_options(kwin_natural_desktop_slide_probe PRIVATE -Wl,--no-undefined)
     set_target_properties(kwin_natural_desktop_slide_probe PROPERTIES PREFIX "")
-    install(TARGETS kwin_natural_desktop_slide_probe DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins" COMPONENT probe)
+    install(TARGETS kwin_natural_desktop_slide_probe
+        LIBRARY DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/plugins"
+        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ COMPONENT probe)
     string(APPEND install_artifacts ",{\"role\":\"probe\",\"source\":\"$<TARGET_FILE:kwin_natural_desktop_slide_probe>\",\"name\":\"kwin_natural_desktop_slide_probe.so\"}")
 endif()
 if(BUILD_CONFIGURATOR)

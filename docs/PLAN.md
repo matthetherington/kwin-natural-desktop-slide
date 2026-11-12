@@ -58,6 +58,8 @@ Automated coverage includes:
   CI); the reload action uses a compact caption to avoid horizontal overflow.
 - Plugin metadata, ABI guards, source/package settings-install parity and mocked
   activation/recovery failures.
+- Explicit plugin installation permissions (`0644`) shared by source and CMake
+  installs, with CI exercising both `CMAKE_INSTALL_SO_NO_EXE` defaults.
 - Source-installed login startup from an empty renderer state using a validated
   recovery baseline, including clean-stop/next-login, gesture-owner conflicts and
   failed direct activation. These are mocked tests; the reboot fix still needs
@@ -75,6 +77,9 @@ rendering paths, not pixel correctness, physical monitors or device behaviour.
 See [isolated integration tests](DEVELOPMENT.md#isolated-multi-output-integration-tests-approval-required).
 
 ### Packaging and version review
+
+Release 0.1.1 synchronizes the CMake and four plugin versions with its changelog;
+the maintainer checklist includes a local run of the tag-only metadata gate.
 
 ARM64 Debian/Ubuntu and Fedora packages have container-only installation and CLI
 smoke-test coverage. RPM signing and final asset verification have fixture-key

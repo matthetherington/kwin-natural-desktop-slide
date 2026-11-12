@@ -61,9 +61,13 @@ jobs:
       - run: ctest --test-dir build --output-on-failure
 
   fedora-effect:
-    name: Native effect / Fedora 45 / x86_64
+    name: Native effect / Fedora 45 / x86_64 / SO_NO_EXE=${{ matrix.so-no-exe }}
     runs-on: ubuntu-24.04
     container: fedora:45
+    strategy:
+      fail-fast: false
+      matrix:
+        so-no-exe: ["ON", "OFF"]
     env:
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
@@ -72,10 +76,13 @@ jobs:
         run: >-
           dnf install -y git cmake ninja-build gcc-c++ python3
           kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel extra-cmake-modules
-            kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel dejavu-sans-fonts
+          kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel dejavu-sans-fonts
           vulkan-loader-devel wayland-devel libxkbcommon-devel
       - uses: actions/checkout@v4
       # Fail on an unreviewed SDK update; never widen the ABI policy automatically.
-      - run: cmake -S . -B build-effect -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=ON
+      # Exercise both Debian/Ubuntu and Fedora-style shared-library mode defaults.
+      - run: >-
+          cmake -S . -B build-effect -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_KWIN_EFFECT=ON -DCMAKE_INSTALL_SO_NO_EXE=${{ matrix.so-no-exe }}
       - run: cmake --build build-effect --parallel 2
       - run: ctest --test-dir build-effect --output-on-failure

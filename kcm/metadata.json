@@ -7,7 +7,7 @@
     "Website": "https://github.com/matthetherington/kwin-natural-desktop-slide",
     "BugReportUrl": "https://github.com/matthetherington/kwin-natural-desktop-slide/issues",
     "License": "GPL-2.0-or-later",
-    "Version": "0.1.0",
+    "Version": "0.1.1",
     "Icon": "preferences-desktop-virtual"
   }
 }

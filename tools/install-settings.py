@@ -41,7 +41,9 @@ def install(artifacts):
             raise RuntimeError("Refusing non-regular installation destination: " + str(destination))
         previous = destination.read_bytes() if destination.exists() else None
         mode = destination.stat().st_mode & 0o777 if previous is not None else 0o755
-        new_mode = 0o644 if destination.suffix == ".desktop" else 0o755
+        # Match the explicit CMake install policy: loadable plugins and desktop
+        # files are data, while the standalone application needs execute bits.
+        new_mode = 0o644 if destination.suffix in (".so", ".desktop") else 0o755
         pending.append((source.read_bytes(), destination, previous, mode, new_mode))
     installed = []
     try:

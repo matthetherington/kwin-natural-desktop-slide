@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1
+
+- Fix source-installed login startup when stock Slide is disabled and a valid
+  saved recovery baseline is available.
+- Keep the gesture editor's reload control compact at narrow widths and larger
+  font sizes, with explicit font dependencies in CI.
+- Make source and CMake installs use consistent non-executable plugin permissions,
+  with CI checking both shared-library permission defaults.
+- Refresh user and contributor documentation and add desktop-switching and
+  overscroll demo videos.
+
 ## 0.1.0
 
 - Initial experimental release: continuous desktop swipes, selective panel

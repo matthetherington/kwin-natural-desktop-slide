@@ -57,9 +57,12 @@ natural-desktop-slide-session stop
 Installing the package does not turn it on or restart your desktop. KDE's original
 Slide effect is kept. For automatic startup, updates or removal, follow the
 [installation guide](docs/BINARY_PACKAGES.md).
+Source and package installs use the same file permissions: plugins and menu
+launchers are non-executable; the settings application remains executable.
 
 ## Help and more information
 
+- [Changelog and release notes](CHANGELOG.md)
 - [Settings and panel selection](docs/CONFIGURATION.md)
 - [How swipes work](docs/GESTURES.md)
 - [Compatibility and known limitations](docs/COMPATIBILITY.md)

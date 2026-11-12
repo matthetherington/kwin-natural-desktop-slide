@@ -10,4 +10,5 @@ target_compile_options(kwin_natural_desktop_slide_config PRIVATE -Wall -Wextra -
 target_link_options(kwin_natural_desktop_slide_config PRIVATE -Wl,--no-undefined)
 set_target_properties(kwin_natural_desktop_slide_config PROPERTIES PREFIX "")
 install(TARGETS kwin_natural_desktop_slide_config
-    DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/configs" COMPONENT settings)
+    LIBRARY DESTINATION "${KDE_INSTALL_PLUGINDIR}/kwin/effects/configs"
+    PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ COMPONENT settings)

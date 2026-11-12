@@ -26,7 +26,11 @@ def check(build, config):
         for _, destination in artifacts:
             counterpart = cmake_stage / destination.relative_to(source_stage)
             assert destination.read_bytes() == counterpart.read_bytes(), counterpart
-            assert destination.stat().st_mode & 0o777 == counterpart.stat().st_mode & 0o777, counterpart
+            source_mode = destination.stat().st_mode & 0o777
+            cmake_mode = counterpart.stat().st_mode & 0o777
+            expected = 0o755 if destination.name == "natural-desktop-slide-config" else 0o644
+            assert source_mode == cmake_mode == expected, (
+                f"{counterpart}: source={source_mode:#05o}, CMake={cmake_mode:#05o}, expected={expected:#05o}")
         desktop = next(destination for _, destination in artifacts if destination.suffix == ".desktop")
         assert "Exec=natural-desktop-slide-config\n" in desktop.read_text()
         assert "Name=Natural Desktop Slide Settings\n" in desktop.read_text()

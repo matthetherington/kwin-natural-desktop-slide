@@ -20,7 +20,14 @@ omitted or relabelled as compatible.
 1. Update CMake and all four plugin metadata versions together.
 2. Add a nonempty `## <version>` section to `CHANGELOG.md`.
 3. Run tests and inspect native CI artifacts/dependencies.
-4. Commit changes, then push a matching tag such as `v0.1.0`.
+4. Run the tag-only metadata check locally before committing and tagging (replace
+   `v0.1.1` with the intended release tag):
+
+   ```sh
+   python3 tools/prepare-release.py --tag v0.1.1 --output build/release-notes.md
+   ```
+
+5. Review the generated notes, commit changes, then push the matching tag.
 
 For a rebuild after a distribution SDK update, bump the project/plugin patch
 version and changelog before publishing a new tag. Reusing an existing tag or

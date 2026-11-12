@@ -130,6 +130,25 @@ class SettingsInstallTest(unittest.TestCase):
             self.assertEqual((stage / "usr/bin/natural-desktop-slide-config").stat().st_mode & 0o777, 0o755)
             self.assertEqual((stage / "usr/share/applications/natural-desktop-slide.desktop").stat().st_mode & 0o777, 0o644)
 
+    def test_all_plugins_install_without_execute_bits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.make_layout(root)
+            artifacts = module.build_artifacts(root, ["renderer", "settings", "controller", "probe"],
+                                               destdir=root / "stage")
+            # Neither build artifact modes nor old destination modes should
+            # override the shared CMake/source installation policy.
+            for source, destination in artifacts:
+                source.chmod(0o755)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(b"old")
+                destination.chmod(0o777)
+            module.install(artifacts)
+            for _, destination in artifacts:
+                with self.subTest(destination=destination):
+                    expected = 0o755 if destination.name == "natural-desktop-slide-config" else 0o644
+                    self.assertEqual(destination.stat().st_mode & 0o777, expected)
+
     def test_old_settings_layout_requires_reconfiguration(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
