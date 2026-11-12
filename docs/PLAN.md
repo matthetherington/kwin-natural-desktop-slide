@@ -56,6 +56,10 @@ Automated coverage includes:
   narrow window sizes and larger fonts.
 - Plugin metadata, ABI guards, source/package settings-install parity and mocked
   activation/recovery failures.
+- Source-installed login startup from an empty renderer state using a validated
+  recovery baseline, including clean-stop/next-login, gesture-owner conflicts and
+  failed direct activation. These are mocked tests; the reboot fix still needs
+  a real reboot/login check.
 
 Standalone tests do not compile compositor code. Full effect/KCM builds and
 their tests are a separate validation step; see [build commands](DEVELOPMENT.md#build-and-test).

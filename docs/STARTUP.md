@@ -60,6 +60,16 @@ The source-installed service pins plugin identities and keeps private helper
 snapshots, independent of the checkout. It waits for a known renderer and gesture
 owner under the systemd Plasma Wayland graphical session.
 
+If login starts with no desktop renderer loaded, the helper can activate the pinned
+renderer/controller directly, but only with a valid recorded recovery baseline
+and a known gesture owner. It never loads stock Slide as an intermediate step.
+Without a baseline, or with competing renderers/controllers, it refuses to guess.
+On managed stop/logout it saves `startup-baseline.json` beside the live recovery
+record before restoring the original effects. This separate baseline survives
+clean shutdown so the next login can resume even when stock Slide is disabled in
+KWin's saved settings. It does not enable startup by itself; the service must
+remain enabled. The live `renderer-session.json` is still consumed on recovery.
+
 | Item | Default location |
 | --- | --- |
 | Settings | `~/.config/kwin-natural-desktop-slide/{panels,gestures}.json` |

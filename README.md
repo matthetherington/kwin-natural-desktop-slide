@@ -21,17 +21,13 @@ https://github.com/user-attachments/assets/8ca0e43f-6843-4bbf-bb82-18d7ace9e889
 
 https://github.com/user-attachments/assets/56e87ffb-8fc6-4faf-9516-d3742101d9f3
 
-## Before you try it
-
-**This is experimental software. Save your work before turning it on:** a crash
-could close your desktop session and unsaved applications.
+**This is experimental software:** broad hardware and software compatibility has not been verified.
 
 - Requires **KDE Plasma on Wayland**, a compatible KWin version and a touchpad
-  with three-finger gesture support. KWin is the part of KDE that draws your desktop.
-- Only **Fedora Asahi with KWin 6.8.2** has been tested on a real desktop so far.
-  Apple hardware is not required, but other systems still need testing.
-- This is not a “Get New Effects” download. It needs a package built specifically
-  for your system. See [compatibility](docs/COMPATIBILITY.md) if you are unsure.
+  with three-finger gesture support. KWin is the part of KDE that draws your desktop. Apple hardware is not required, but other systems still need testing.
+- Only **Fedora Asahi with KWin 6.8.2** has been tested on real hardware so far, but other KDE-based systems should be compatible too.
+- This is not a “Get New Effects” download. You'll need to download a package built specifically
+  for your system, or build one yourself. See [compatibility](docs/COMPATIBILITY.md).
 
 ## Get started
 
@@ -68,6 +64,8 @@ Slide effect is kept. For automatic startup, updates or removal, follow the
 - [Compatibility and known limitations](docs/COMPATIBILITY.md)
 - [Feature scope and validation coverage](docs/PLAN.md)
 - [Startup and recovery](docs/STARTUP.md)
+- Source-installed login services can resume pinned plugins without loading stock
+  Slide first when a valid saved recovery baseline is available.
 - [All documentation](docs/README.md), including source builds and contributor guides
 - [Report a problem](https://github.com/matthetherington/kwin-natural-desktop-slide/issues)
 
