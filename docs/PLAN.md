@@ -54,6 +54,8 @@ Automated coverage includes:
 - Overscroll geometry, colour selection and legacy/modern KWin API adapters.
 - Settings feedback, unsaved-edit guards, dependent controls and layouts at
   narrow window sizes and larger fonts.
+- Narrow gesture-editor layout with 18pt DejaVu Sans (installed explicitly in
+  CI); the reload action uses a compact caption to avoid horizontal overflow.
 - Plugin metadata, ABI guards, source/package settings-install parity and mocked
   activation/recovery failures.
 - Source-installed login startup from an empty renderer state using a validated

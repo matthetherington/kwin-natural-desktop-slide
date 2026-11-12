@@ -70,13 +70,13 @@ jobs:
             dnf install -y git cmake ninja-build gcc-c++ python3 rpm-build \
               kwin kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools \
               extra-cmake-modules kf6-kcmutils-devel kf6-kcoreaddons-devel \
-              libepoxy-devel libdrm-devel vulkan-loader-devel wayland-devel libxkbcommon-devel libcap
+              libepoxy-devel libdrm-devel vulkan-loader-devel wayland-devel libxkbcommon-devel libcap dejavu-sans-fonts
           elif command -v apt-get >/dev/null; then
             apt-get update
             apt-get install -y --no-install-recommends git ca-certificates cmake ninja-build g++ \
               python3 dpkg-dev file kwin-dev kwin-wayland qt6-base-dev qt6-declarative-dev \
               qt6-tools-dev-tools qdbus-qt6 extra-cmake-modules libkf6kcmutils-dev libkf6coreaddons-dev \
-              pkg-config libdrm-dev libepoxy-dev libwayland-dev libvulkan-dev libxkbcommon-dev libx11-dev libcap2-bin
+              pkg-config libdrm-dev libepoxy-dev libwayland-dev libvulkan-dev libxkbcommon-dev libx11-dev libcap2-bin fonts-dejavu-core
           else
             pacman -Syu --noconfirm --needed git cmake ninja gcc python kwin extra-cmake-modules \
               qt6-base qt6-declarative qt6-tools kcmutils kcoreaddons libarchive zstd \

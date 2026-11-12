@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ clang libgl1-mesa-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ clang libgl1-mesa-dev fonts-dejavu-core
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
@@ -51,9 +51,9 @@ jobs:
         run: |
           if command -v apt-get >/dev/null; then
             apt-get update
-            apt-get install -y git cmake ninja-build g++ qt6-base-dev libgl1-mesa-dev python3
+            apt-get install -y git cmake ninja-build g++ qt6-base-dev libgl1-mesa-dev python3 fonts-dejavu-core
           else
-            dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel mesa-libGL-devel python3
+            dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel mesa-libGL-devel python3 dejavu-sans-fonts
           fi
       - uses: actions/checkout@v4
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=OFF
@@ -72,7 +72,7 @@ jobs:
         run: >-
           dnf install -y git cmake ninja-build gcc-c++ python3
           kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel extra-cmake-modules
-          kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel
+            kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel dejavu-sans-fonts
           vulkan-loader-devel wayland-devel libxkbcommon-devel
       - uses: actions/checkout@v4
       # Fail on an unreviewed SDK update; never widen the ABI policy automatically.

@@ -39,7 +39,8 @@ https://github.com/user-attachments/assets/56e87ffb-8fc6-4faf-9516-d3742101d9f3
    you can also open the same editor through **System Settings → Animations →
    virtual-desktop switching → Natural Desktop Slide (Experimental) → configuration**.
    Choose which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md)
-   for help with the controls and larger-text layouts.
+    for help with the controls and larger-text layouts. **Reload saved settings**
+    discards unsaved gesture edits after confirmation.
    If the effect is already running, choose **Apply saved settings** after saving.
 3. Save your work, open **Konsole** (KDE's terminal), and run:
 

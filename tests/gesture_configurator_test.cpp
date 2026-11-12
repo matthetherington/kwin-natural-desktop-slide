@@ -39,6 +39,8 @@ private Q_SLOTS:
         QTest::newRow("large-text") << QSize(720, 620) << 18 << QString();
         QTest::newRow("small-large-text") << QSize(540, 360) << 18 << QString();
         QTest::newRow("wide-large-text") << QSize(1100, 800) << 18 << QString();
+        // DejaVu's wider caption metrics exposed a 5px overflow from the reload
+        // button. CI installs this font explicitly to avoid testing a fallback.
         QTest::newRow("small-large-dejavu") << QSize(540, 360) << 18 << QString("DejaVu Sans");
     }
 

@@ -248,7 +248,10 @@ public:
         defaults->setToolTip("Reset the controls to their recommended defaults. Nothing is saved or applied until you choose Save and Apply.");
         defaults->setObjectName("restoreGestureDefaults");
         layout->addWidget(defaults);
-        auto reloadSaved = new QPushButton("Discard edits and reload saved settings");
+        // Keep the caption compact at larger fonts; the tooltip and confirmation
+        // explain discarding edits without forcing horizontal scrolling.
+        auto reloadSaved = new QPushButton("Reload saved settings");
+        reloadSaved->setToolTip("Discard unsaved gesture edits and reload your saved settings. You will be asked to confirm before edits are discarded.");
         reloadSaved->setObjectName("reloadSavedGestureSettings");
         layout->addWidget(reloadSaved);
         m_save = new QPushButton("Save gesture settings");
