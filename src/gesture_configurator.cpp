@@ -21,7 +21,9 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QResizeEvent>
 #include <QScrollArea>
+#include <QScopedValueRollback>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -29,9 +31,49 @@ namespace NaturalSwipe
 {
 namespace
 {
+class HelpLabel : public QLabel
+{
+public:
+    using QLabel::QLabel;
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QLabel::resizeEvent(event);
+        updateMinimumHeight();
+    }
+
+    void changeEvent(QEvent *event) override
+    {
+        QLabel::changeEvent(event);
+        if (event->type() == QEvent::FontChange || event->type() == QEvent::StyleChange) {
+            updateMinimumHeight(true);
+        }
+    }
+
+private:
+    void updateMinimumHeight(bool force = false)
+    {
+        // Qt 6.8's form height-for-width calculation can underallocate wrapped
+        // rows after a resize. Keep the actual text height as a hard minimum,
+        // recalculating in both directions so wider windows can shrink again.
+        if (m_measuring || (!force && m_measuredWidth == width())) return;
+        QScopedValueRollback<bool> measuring(m_measuring, true);
+        m_measuredWidth = width();
+        // QLabel clamps heightForWidth to its current minimum. Clear our old
+        // constraint before measuring, or smaller fonts/wider rows cannot undo it.
+        setMinimumHeight(0);
+        const int required = heightForWidth(width());
+        if (required >= 0 && minimumHeight() != required) setMinimumHeight(required);
+    }
+
+    int m_measuredWidth = -1;
+    bool m_measuring = false;
+};
+
 QLabel *helpText(const QString &text, const QString &name = {})
 {
-    auto label = new QLabel(text);
+    auto label = new HelpLabel(text);
     label->setObjectName(name);
     label->setWordWrap(true);
     label->setTextFormat(Qt::PlainText);
@@ -159,7 +201,7 @@ public:
                   "Speed required for short flicks to complete. This controls recognition, not animation speed.");
         auto overscroll = group("Overflow settings");
         overscroll->parentWidget()->setObjectName("overflowSettings");
-        m_overscroll = new QCheckBox("Allow movement past desktop edges");
+        m_overscroll = new QCheckBox("Allow edge overflow");
         m_overscroll->setObjectName("overscrollEnabled");
         overscroll->addRow(m_overscroll);
         overscroll->addRow(helpText("Allow a little resisted movement when swiping past the first or last desktop.", "overflowHelp"));

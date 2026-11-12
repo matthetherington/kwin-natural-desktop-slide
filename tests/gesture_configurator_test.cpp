@@ -33,20 +33,24 @@ private Q_SLOTS:
     {
         QTest::addColumn<QSize>("size");
         QTest::addColumn<int>("fontSize");
-        QTest::newRow("small") << QSize(540, 360) << 10;
-        QTest::newRow("normal") << QSize(720, 620) << 10;
-        QTest::newRow("large-text") << QSize(720, 620) << 18;
-        QTest::newRow("small-large-text") << QSize(540, 360) << 18;
-        QTest::newRow("wide-large-text") << QSize(1100, 800) << 18;
+        QTest::addColumn<QString>("fontFamily");
+        QTest::newRow("small") << QSize(540, 360) << 10 << QString();
+        QTest::newRow("normal") << QSize(720, 620) << 10 << QString();
+        QTest::newRow("large-text") << QSize(720, 620) << 18 << QString();
+        QTest::newRow("small-large-text") << QSize(540, 360) << 18 << QString();
+        QTest::newRow("wide-large-text") << QSize(1100, 800) << 18 << QString();
+        QTest::newRow("small-large-dejavu") << QSize(540, 360) << 18 << QString("DejaVu Sans");
     }
 
     void helpUsesSectionWidthWithoutClipping()
     {
         QFETCH(QSize, size);
         QFETCH(int, fontSize);
+        QFETCH(QString, fontFamily);
         QTemporaryDir dir;
         std::unique_ptr<QWidget> widget(createGestureConfigurator(dir.filePath("gestures.json")));
         auto font = widget->font();
+        if (!fontFamily.isEmpty()) font.setFamily(fontFamily);
         font.setPointSize(fontSize);
         widget->setFont(font);
         widget->resize(size);
@@ -62,6 +66,16 @@ private Q_SLOTS:
             QCoreApplication::processEvents();
             auto scroll = widget->findChild<QScrollArea *>("gestureScroll");
             QVERIFY(scroll);
+            if (scroll->horizontalScrollBar()->maximum() != 0) {
+                qWarning() << "Viewport:" << scroll->viewport()->size()
+                           << "Contents minimum:" << scroll->widget()->minimumSize();
+                for (auto button : widget->findChildren<QPushButton *>()) {
+                    qWarning() << "Button:" << button->text() << "minimum:" << button->minimumSizeHint();
+                }
+                for (auto group : widget->findChildren<QGroupBox *>()) {
+                    qWarning() << group->title() << "minimum:" << group->minimumSizeHint();
+                }
+            }
             QTRY_COMPARE(scroll->horizontalScrollBar()->maximum(), 0);
             int count = 0;
             for (auto help : widget->findChildren<QLabel *>()) {
@@ -85,10 +99,33 @@ private Q_SLOTS:
                 auto next = form->itemAt(row + 1, QFormLayout::SpanningRole);
                 if (!next) next = form->itemAt(row + 1, QFormLayout::FieldRole);
                 if (next) {
-                    QVERIFY(help->geometry().bottom() < next->geometry().top());
+                    QTRY_VERIFY2(help->geometry().bottom() < next->geometry().top(), qPrintable(help->objectName()));
                 }
             }
             QCOMPARE(count, 10); // Seven numeric explanations and three checkbox/edge hints.
+        }
+    }
+
+    void helpMinimumTracksFontChanges()
+    {
+        QTemporaryDir dir;
+        std::unique_ptr<QWidget> widget(createGestureConfigurator(dir.filePath("gestures.json")));
+        widget->resize(720, 620);
+        widget->show();
+        QVERIFY(QTest::qWaitForWindowExposed(widget.get()));
+        auto help = widget->findChild<QLabel *>("slowSwipeThresholdHelp");
+        QVERIFY(help);
+        int smallMinimum = 0;
+        for (const int points : {10, 18, 10}) {
+            auto font = widget->font();
+            font.setPointSize(points);
+            widget->setFont(font);
+            QCoreApplication::processEvents();
+            QTRY_VERIFY(help->height() >= help->heightForWidth(help->width()));
+            QTRY_COMPARE(help->minimumHeight(), help->heightForWidth(help->width()));
+            if (smallMinimum == 0) smallMinimum = help->minimumHeight();
+            else if (points == 18) QVERIFY(help->minimumHeight() > smallMinimum);
+            else QTRY_COMPARE(help->minimumHeight(), smallMinimum);
         }
     }
 

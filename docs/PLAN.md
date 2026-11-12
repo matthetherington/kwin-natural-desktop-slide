@@ -41,6 +41,17 @@ For user-facing guidance, start with [compatibility](COMPATIBILITY.md).
 
 ## Validation boundary
 
+CI layout portability follow-up: reproduced Debian 13 / Qt 6.8.2 ARM64's exact
+10-pixel horizontal overflow at 540 × 360 with 18-point text. The overflow checkbox
+now uses a shorter label while preserving its full explanation. Wrapped labels
+also enforce their height-for-width minimum after width/font/style changes to
+avoid Qt 6.8 form-row underallocation. Coverage retains the zero-horizontal-scroll
+and unclipped-text assertions and adds DejaVu Sans and live font-change cases.
+All 23 standalone suites pass in an isolated Debian 13 ARM64 / Qt 6.8.2 container
+with GCC 14 and Clang 19. Host Qt 6.11.2 builds pass 23 standalone and 27 effect
+suites. Hosted x86_64/Ubuntu Qt 6.8.3 reruns remain pending; no host installation
+or live compositor changes were made.
+
 Gesture-help layout follow-up: explanations use full-width form rows with explicit
 height-for-width sizing, rather than nested spin-box-width fields. The edge section
 is titled **Overflow settings**. Regression coverage checks full-width, unclipped

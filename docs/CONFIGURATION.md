@@ -56,6 +56,9 @@ editor until you save and reload.
   locations and backup paths. You do not need these for normal use.
 - Controls that depend on a disabled option are greyed out; their values are kept.
 
+Help text reflows when you resize the window or change the font size. Compact
+checkbox labels leave room for larger text; their explanations appear underneath.
+
 ## If something does not look right
 
 - Fully close and reopen System Settings after installing or updating the effect.

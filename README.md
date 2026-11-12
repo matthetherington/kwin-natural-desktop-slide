@@ -28,7 +28,8 @@ could close your desktop session and unsaved applications.
 2. Open **Natural Desktop Slide Settings** from your application menu. On KWin 6.8,
    you can also open the same editor through **System Settings → Animations →
    virtual-desktop switching → Natural Desktop Slide (Experimental) → configuration**.
-   Choose which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md).
+   Choose which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md)
+   for help with the controls and larger-text layouts.
    If the effect is already running, choose **Apply saved settings** after saving.
 3. Save your work, open **Konsole** (KDE's terminal), and run:
 
