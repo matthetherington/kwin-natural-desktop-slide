@@ -4,8 +4,28 @@ Switch between KDE Plasma desktops with a three-finger touchpad swipe. The
 animation follows your fingers, and you choose which panels slide with your
 desktop and which stay in place.
 
+It brings macOS (OS X)-like desktop switching to KDE Plasma, with touchpad
+behaviour close to native Mac swipes: direct finger tracking, quick flicks and
+spring-back overscroll at the desktop edges.
+
 You can also customise the animation speed and the background shown when you
 swipe past the last desktop. Panels keep the same contents on every desktop.
+
+## Demos
+
+### Desktop switching — fast and slow swipes
+
+[![Watch fast and slow touchpad swipes switching between desktops](docs/media/desktop-swiping.jpg)](docs/media/desktop-swiping.mp4)
+
+[Watch the desktop-switching demo](docs/media/desktop-swiping.mp4) (27 seconds, 4.5 MB).
+
+### Edge overscroll — resistance and spring-back
+
+[![Watch overscroll at the desktop edge](docs/media/overscroll.jpg)](docs/media/overscroll.mp4)
+
+[Watch the overscroll demo](docs/media/overscroll.mp4) (7 seconds, 0.9 MB).
+
+Click either preview to watch. Both videos are 1280 × 800 at 30 fps.
 
 ## Before you try it
 

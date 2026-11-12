@@ -27,6 +27,9 @@ For user-facing guidance, start with [compatibility](COMPATIBILITY.md).
 - Audience-based documentation: a short public README, separate user guides and
   technical references, a complete source-build guide and a dedicated maintainer
   release guide. [Documentation index](README.md) maps each guide to its audience.
+- Public README includes titled desktop-switching and overscroll screencasts,
+  compressed to 1280 × 800 / 30 fps H.264 MP4 with linked image previews, and
+  describes the macOS (OS X)-like touchpad behaviour.
 - Multi-output shared preview/switching and independent-output targeting, with
   pinned follow-ups, scoped cancellation and topology/scale/transform invalidation.
 - Output-local painting, including windows intersecting more than one output.
