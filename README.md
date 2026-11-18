@@ -11,15 +11,23 @@ spring-back overscroll at the desktop edges.
 You can also customise the animation speed and the background shown when you
 swipe past the last desktop. Panels keep the same contents on every desktop.
 
-## Demos
+## Video Demos
 
-### Desktop switching demo - fast and slow swipes (27 seconds, 4.5 MB)
+Credit for the touch overlay visualisation goes to https://github.com/malbiruk/touchview - this was slightly modified to add the trail effect but is otherwise original.
 
-https://github.com/user-attachments/assets/8ca0e43f-6843-4bbf-bb82-18d7ace9e889
+Placing KDE Plasma panels in the background behind windows was done using [plasma-panel-in-background](https://github.com/matthetherington/plasma-panel-in-background).
 
-### Edge overscroll demo - resistance and spring-back (7 seconds, 0.9 MB)
+### Desktop switching demo - fast and slow swipes, and two-finger slide control after three-finger swipe (30 seconds, 7.9 MB)
 
-https://github.com/user-attachments/assets/56e87ffb-8fc6-4faf-9516-d3742101d9f3
+https://github.com/user-attachments/assets/844b8188-d5a2-4c57-b638-229baa09d891
+
+### Edge overscroll demo with solid black default background - resistance and spring-back (9 seconds, 2.1 MB)
+
+https://github.com/user-attachments/assets/869a9d0c-5855-4cd0-b5fd-7f677eb1785a
+
+### Edge overscroll demo with desktop wallpaper option (17 seconds, 3.1 MB)
+
+https://github.com/user-attachments/assets/d03c1b94-9a10-4f06-80bf-0e6660e9ea62
 
 **This is experimental software:** broad hardware and software compatibility has not been verified.
 
