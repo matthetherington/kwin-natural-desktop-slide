@@ -91,18 +91,33 @@ published assets exist or that all hosted CI targets pass. Consult
 for available downloads and their per-asset manifests.
 
 The reviewed source-version range is **KWin 6.7.0–6.7.6 and 6.8.0–6.8.3**.
-Versions without native build or desktop testing remain source-reviewed only.
+These historical lists are not automatically promoted by branch-based acceptance.
+Source builds now accept other patches on **6.7.x and 6.8.x** with warnings;
+new minor branches and prereleases remain rejected.
 Every binary requires its exact build-time KWin runtime; distribution patches
 can require additional review. See [upstream dependencies](UPSTREAM.md).
 
 The November 18 CI failures were the expected fail-closed rejection of Fedora
-and Arch's KWin 6.8.3 SDK update. Source review now admits that patch release
-without allowing future versions automatically. Installer and plugin regressions
+and Arch's KWin 6.8.3 SDK update under the former exact source allowlist.
+Installer and plugin regressions
 check that 6.8.2 and 6.8.3 binaries cannot be used interchangeably.
 Validation on Fedora 45 ARM64 with `kwin-devel-6.8.3-1.fc45` passed 27 full-effect
 tests with each `CMAKE_INSTALL_SO_NO_EXE` setting and 28 Release/package tests,
 then generated an exact-runtime-pinned RPM in a disposable container. No 6.8.3
 plugins were installed or activated, and x86_64/Arch reruns remain hosted CI work.
+
+Weekly release automation prepares one project patch-version bump and applies
+that exact source patch to portable CI and every native target. Only after all
+tests, disposable-container installs, signatures and assets pass does the privileged
+job atomically push the release commit/tag and publish those same packages.
+Build jobs remain read-only; a changed default branch or conflicting tag blocks
+publication rather than overwriting work. Local fixture tests cover source-patch
+identity, version selection, tag retries and concurrent branch changes; they do
+not establish that hosted write permissions or a scheduled publication have passed.
+Local validation passed 25 standalone tests, 30 full-effect/package tests on
+KWin 6.8.2, and a separate 30-test build of a prepared next-version snapshot.
+Workflow YAML also passed actionlint; native RPM generation still needs the
+matching distribution's CI packaging environment.
 
 ## Remaining validation and work
 

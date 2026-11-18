@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Matt Hetherington
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Sign tested RPM payloads only in the privileged, tag-only release job."""
+"""Sign tested RPM payloads only in the privileged, CI-gated release job."""
 import argparse
 from contextlib import contextmanager
 import hashlib

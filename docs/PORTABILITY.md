@@ -26,8 +26,10 @@ KWin source-reviewed ports: **6.7.0–6.7.6 and 6.8.0–6.8.3**. Native ARM64 SD
 build/test coverage includes Debian sid 6.7.4, Ubuntu 26.10 6.7.5 and Fedora 45
 6.8.2/6.8.3.
 Only 6.8.2 is live-validated. KWin 6.6 and earlier are not yet
-ported. An older distribution needs a supported Plasma/KWin repository, not a
-forced version override. Install matching development packages and rebuild after
+ported. Source builds accept other patch releases on 6.7.x and 6.8.x with a
+warning; new minor branches and prereleases still need a port. An older
+distribution needs a supported Plasma/KWin repository, not a forced version
+override. Install matching development packages and rebuild after
 every KWin update. Downstream private-ABI changes can require further review.
 
 ## Distribution dependencies

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from kwin_version_policy import source_version_supported
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,8 +30,7 @@ def verify(directory, version, targets, require_rpm_signature=False):
         suffix = {"rpm": ".rpm", "deb": ".deb", "arch": ".pkg.tar.zst"}[expected[target]["format"]]
         if not name.endswith(suffix) or not name.startswith(f"kwin-natural-desktop-slide-{version}-{target}-kwin-"):
             raise ValueError("Package format mismatch")
-        policy = json.loads((ROOT / "effect/compat/kwin-versions.json").read_text())
-        if (info.get("kwinVersion") not in policy["sourceBuildVersions"]
+        if (not source_version_supported(info.get("kwinVersion"))
                 or not re.fullmatch(r"[a-z0-9][a-z0-9+.-]*", info.get("runtimePackage", ""))
                 or not re.fullmatch(r"[A-Za-z0-9.+:~_-]+", info.get("runtimePackageVersion", ""))):
             raise ValueError("Missing/invalid exact runtime dependency")

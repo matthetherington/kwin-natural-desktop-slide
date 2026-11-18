@@ -7,6 +7,11 @@ on:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      rebuild-snapshot:
+        description: Test a scheduled release snapshot without publishing
+        type: boolean
+        default: false
   schedule:
     - cron: '17 8 * * 1'
 permissions:
@@ -21,11 +26,16 @@ jobs:
     timeout-minutes: 10
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
+      release-tag: ${{ steps.release.outputs.tag }}
+      release-version: ${{ steps.release.outputs.version }}
+      source-patch: ${{ steps.release.outputs.source-patch }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - run: python3 tests/release_tools_test.py
+      - run: python3 tests/scheduled_release_test.py
+      - run: python3 tests/kwin_version_policy_test.py
       - name: Native target matrix
         id: matrix
         run: |
@@ -36,17 +46,44 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
               stream.write('value=' + json.dumps(matrix, separators=(',', ':')) + '\n')
           PY
-      - name: Validate release versions and changelog
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Prepare scheduled version bump or validate the release tag
+        id: release
+        if: github.event_name == 'schedule' || inputs.rebuild-snapshot || startsWith(github.ref, 'refs/tags/')
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: python3 tools/prepare-release.py --tag "$RELEASE_TAG" --output release-notes.md
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PREPARE_SNAPSHOT: ${{ inputs.rebuild-snapshot || false }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$PREPARE_SNAPSHOT" = true ]; then
+            gh api --paginate "repos/$GH_REPO/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/release-tags.txt"
+            python3 tools/scheduled-release.py prepare --tags-file "$RUNNER_TEMP/release-tags.txt" \
+              --notes release-notes.md --patch scheduled-release.patch --github-output "$GITHUB_OUTPUT"
+            echo "source-patch=scheduled-release-source" >> "$GITHUB_OUTPUT"
+          else
+            python3 tools/prepare-release.py --tag "$RELEASE_TAG" --output release-notes.md
+            echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.release.outputs.source-patch != ''
+        with:
+          name: scheduled-release-source
+          path: scheduled-release.patch
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.release.outputs.tag != ''
         with:
           name: release-notes
           path: release-notes.md
           if-no-files-found: error
+
+  portable:
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/') || needs.metadata.outputs.source-patch != ''
+    needs: metadata
+    uses: ./.github/workflows/ci.yml
+    with:
+      source-patch: ${{ needs.metadata.outputs.source-patch }}
 
   native:
     needs: metadata
@@ -67,7 +104,7 @@ jobs:
         shell: sh
         run: |
           if command -v dnf >/dev/null; then
-            dnf install -y git cmake ninja-build gcc-c++ python3 rpm-build \
+            dnf --refresh install -y git cmake ninja-build gcc-c++ python3 rpm-build \
               kwin kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools \
               extra-cmake-modules kf6-kcmutils-devel kf6-kcoreaddons-devel \
               libepoxy-devel libdrm-devel vulkan-loader-devel wayland-devel libxkbcommon-devel libcap dejavu-sans-fonts
@@ -91,6 +128,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: needs.metadata.outputs.source-patch != ''
+        with:
+          name: ${{ needs.metadata.outputs.source-patch }}
+          path: ${{ runner.temp }}/release-source
+      - name: Apply the prepared release snapshot
+        if: needs.metadata.outputs.source-patch != ''
+        run: git apply --check "$RUNNER_TEMP/release-source/scheduled-release.patch" && git apply "$RUNNER_TEMP/release-source/scheduled-release.patch"
       - name: Configure matching production SDK
         run: >-
           cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -138,8 +183,11 @@ jobs:
           retention-days: 30
 
   release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs: [metadata, native]
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
+    needs: [metadata, native, portable]
+    concurrency:
+      group: natural-desktop-slide-publication
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -148,6 +196,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: github.event_name == 'schedule'
+        with:
+          name: scheduled-release-source
+          path: ${{ runner.temp }}/release-source
+      - name: Restore the tested source snapshot
+        if: github.event_name == 'schedule'
+        run: git apply --check "$RUNNER_TEMP/release-source/scheduled-release.patch" && git apply "$RUNNER_TEMP/release-source/scheduled-release.patch"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: native-*
@@ -161,20 +217,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.release-tag }}
+          RELEASE_VERSION: ${{ needs.metadata.outputs.release-version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
           RPM_SIGNING_FINGERPRINT: ${{ vars.RPM_SIGNING_FINGERPRINT }}
         run: |
-          python3 tools/verify-release-assets.py --directory dist --version "${RELEASE_TAG#v}"
+          python3 tools/prepare-release.py --tag "$RELEASE_TAG" --output "$RUNNER_TEMP/verified-release-notes.md"
+          python3 tools/verify-release-assets.py --directory dist --version "$RELEASE_VERSION"
           sudo apt-get update
           sudo apt-get install -y rpm gnupg
           python3 tools/sign-release.py --directory dist
-          python3 tools/verify-release-assets.py --directory dist --version "${RELEASE_TAG#v}" --require-rpm-signature
+          python3 tools/verify-release-assets.py --directory dist --version "$RELEASE_VERSION" --require-rpm-signature
           python3 - <<'PY'
           import os
           from pathlib import Path
           p = Path('notes/release-notes.md')
           p.write_text(p.read_text() + '\nRPM signing key fingerprint: `' + os.environ['RPM_SIGNING_FINGERPRINT'].upper() + '`.\n')
           PY
-          gh release create "$RELEASE_TAG" --verify-tag --title "Natural Desktop Slide ${RELEASE_TAG#v}" \
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            gh auth setup-git
+            python3 tools/scheduled-release.py publish-snapshot --tag "$RELEASE_TAG" \
+              --base "$GITHUB_SHA" --branch "$DEFAULT_BRANCH"
+          fi
+          gh release create "$RELEASE_TAG" --verify-tag --title "Natural Desktop Slide $RELEASE_VERSION" \
             --notes-file notes/release-notes.md dist/*

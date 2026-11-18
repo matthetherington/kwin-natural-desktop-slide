@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(BUILD_KWIN_EFFECT "Build the effect for a reviewed, exact-runtime-matched KWin version" OFF)
+option(BUILD_KWIN_EFFECT "Build the effect for a supported KWin source branch, with exact runtime matching" OFF)
 option(BUILD_CONFIGURATOR "Build the standalone panel picker" ON)
 option(BUILD_SETTINGS_MODULE "Include the KDE settings module in effect builds" ON)
 option(BUILD_DIAGNOSTIC "Build read-only configuration/panel diagnostics" ON)

@@ -13,6 +13,11 @@ Downloads appear only after release checks pass. The table below lists intended
 package targets, not a promise that every package is already available or tested
 on a real desktop.
 
+Weekly builds use the newest SDKs available in these distributions and publish
+a new project patch release only after the full release checks pass. A failed
+target blocks publication, and new KWin minor branches are not accepted
+automatically. An update may therefore still require waiting for a matching asset.
+
 Only Fedora Asahi has been tested on a real desktop. Other package checks are
 build and container tests, not proof that the effect works on your desktop.
 See [compatibility](COMPATIBILITY.md) for the testing boundary.

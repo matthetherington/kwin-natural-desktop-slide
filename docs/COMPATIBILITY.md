@@ -22,7 +22,8 @@ before downloading. Do not force an incompatible package to install.
 | --- | --- |
 | Real desktop | Fedora Asahi, aarch64, KWin 6.8.2 Wayland only. |
 | Native builds and automated tests | KWin 6.7.4, 6.7.5, 6.8.2 and 6.8.3 on ARM64. This does not establish live desktop support on every system. |
-| Source review | KWin 6.7.0–6.7.6 and 6.8.0–6.8.3. Other versions are rejected; review alone is not a successful build or desktop test. |
+| Source review | KWin 6.7.0–6.7.6 and 6.8.0–6.8.3. Review alone is not a successful build or desktop test. |
+| Source-build policy | Patch releases on 6.7.x and 6.8.x are accepted, with warnings for unreviewed patches. Other minor branches and prereleases are rejected. |
 | Multiple screens | Two/three virtual screens, including shared and independent desktops. Physical multi-monitor testing remains outstanding. |
 
 Release build targets also include x86_64 and other distributions. A target is
@@ -35,6 +36,11 @@ This effect uses internal KWin interfaces that can change between updates.
 Each binary must match the KWin build it was made for. Packages deliberately
 require an exact KWin package version; source users must rebuild after KWin updates.
 Distribution patches can also require further review.
+
+Weekly CI uses the latest SDK offered by each target distribution, not necessarily
+the latest upstream KWin release. After the portable tests, all native package
+targets and signing/asset checks pass, it publishes a new project patch release.
+This does not widen any binary's runtime compatibility or establish live validation.
 
 If an update is blocked by this package, wait for a matching rebuild or
 [disable and remove the effect](BINARY_PACKAGES.md#upgrade-or-remove) before

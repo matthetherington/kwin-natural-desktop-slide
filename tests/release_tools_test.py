@@ -7,10 +7,12 @@ import json
 import re
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
 
 
 def load(name, file):
@@ -121,6 +123,16 @@ class ReleaseToolsTest(unittest.TestCase):
             with patch.object(package, "output", return_value="kwin 6.8.1"):
                 with self.assertRaises(ValueError):
                     package.checked_build(root)
+            # Future patches are buildable, never binary-interchangeable.
+            future = info() | {"kwinVersion": "6.8.99"}
+            metadata.write_text(json.dumps(future))
+            layout["kwinVersion"] = "6.8.99"
+            (root / "install-layout-Release.json").write_text(json.dumps(layout))
+            with patch.object(package, "output", return_value="kwin 6.8.99"):
+                self.assertEqual(package.checked_build(root), future)
+            with patch.object(package, "output", return_value="kwin 6.8.98"):
+                with self.assertRaisesRegex(ValueError, "mismatch"):
+                    package.checked_build(root)
 
     def test_user_state_never_belongs_to_package(self):
         config = session.configuration(info(), "/home/test", {})
@@ -209,6 +221,25 @@ class ReleaseToolsTest(unittest.TestCase):
             (root / name).write_bytes(b"corrupted")
             with self.assertRaisesRegex(ValueError, "checksum"):
                 assets.verify(root, "0.1.0", [target])
+
+    def test_assets_accept_supported_future_patch_but_not_new_minor(self):
+        target = {"target": "fedora-45-x86_64", "arch": "x86_64", "format": "rpm"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            name = "kwin-natural-desktop-slide-0.1.0-fedora-45-x86_64-kwin-0_6.8.99-1.fc45.rpm"
+            (root / name).write_bytes(b"fixture")
+            digest = hashlib.sha256(b"fixture").hexdigest()
+            (root / (name + ".sha256")).write_text(f"{digest}  {name}\n")
+            manifest = {"schemaVersion": 1, "projectVersion": "0.1.0", "target": target["target"],
+                        "architecture": "x86_64", "artifact": name, "sha256": digest,
+                        "kwinVersion": "6.8.99", "runtimePackage": "kwin", "runtimePackageVersion": "0:6.8.99-1.fc45"}
+            path = root / (name + ".json")
+            path.write_text(json.dumps(manifest))
+            self.assertEqual(len(assets.verify(root, "0.1.0", [target])), 3)
+            for version in ("6.9.0", "7.0.0", "6.8.99-rc1"):
+                path.write_text(json.dumps(manifest | {"kwinVersion": version}))
+                with self.subTest(version=version), self.assertRaisesRegex(ValueError, "runtime"):
+                    assets.verify(root, "0.1.0", [target])
 
 
 if __name__ == "__main__":

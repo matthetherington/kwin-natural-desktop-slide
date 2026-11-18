@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Allow source builds on KWin 6.7.x and 6.8.x patch releases, warning when a patch
+  has not been individually reviewed. Keep exact build/runtime binary matching.
+- Test the newest distribution SDKs weekly and publish a new patch release only
+  after portable CI, the entire native package matrix and signing checks pass.
+- Prepare one version-bumped source snapshot for every release test. Push its
+  commit/tag only after validation, without overwriting a newer default branch.
+
 ## 0.1.2
 
 - Support source builds and native package rebuilds against reviewed KWin 6.8.3,

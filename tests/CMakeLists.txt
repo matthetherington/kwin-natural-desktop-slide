@@ -92,6 +92,8 @@ if(Python3_Interpreter_FOUND)
             --build-dir "${PROJECT_BINARY_DIR}")
     endif()
     add_test(NAME release_tools COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/release_tools_test.py")
+    add_test(NAME kwin_version_policy COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/kwin_version_policy_test.py")
+    add_test(NAME scheduled_release COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scheduled_release_test.py")
     add_test(NAME package_metadata COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/package_metadata_test.py")
     add_test(NAME startup_session_handoff COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/startup_session_test.py")
     add_test(NAME session_effect_rollback COMMAND "${Python3_EXECUTABLE}"

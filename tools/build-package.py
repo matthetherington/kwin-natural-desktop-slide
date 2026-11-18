@@ -12,6 +12,7 @@ import re
 import subprocess
 import tempfile
 import time
+from kwin_version_policy import source_version_supported
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "kwin-natural-desktop-slide"
@@ -40,15 +41,14 @@ def checked_build(build):
         raise ValueError("Packaging requires tests and distribution integration enabled")
     info = json.loads((build / "packaging/build-info.json").read_text())
     layout = json.loads((build / "install-layout-Release.json").read_text())
-    policy = json.loads((ROOT / "effect/compat/kwin-versions.json").read_text())
     if (info.get("schemaVersion") != 1 or info.get("integrationDriver") is not False
             or layout.get("integrationDriver") is not False
-            or info.get("kwinVersion") not in policy["sourceBuildVersions"]
+            or not source_version_supported(info.get("kwinVersion"))
             or info.get("kwinVersion") != layout.get("kwinVersion")
             or info.get("rendererId") != "kwin_natural_desktop_slide"
             or info.get("controllerId") != "kwin_natural_desktop_slide_controller"
             or not re.fullmatch(r"\d+\.\d+\.\d+", info.get("version", ""))):
-        raise ValueError("Only a reviewed full production Release build may be packaged")
+        raise ValueError("Only a supported full production Release build may be packaged")
     expected = {"renderer": "kwin_natural_desktop_slide.so", "settings": "kwin_natural_desktop_slide_config.so",
                  "controller": "kwin_natural_desktop_slide_controller.so",
                  "configurator": "natural-desktop-slide-config", "launcher": "natural-desktop-slide.desktop"}

@@ -11,11 +11,46 @@ builds native packages separately for every SDK.
 See [release.yml](../.github/workflows/release.yml) and
 [targets.json](../packaging/targets.json).
 
-PR/main/manual/weekly runs build packages as Actions artifacts, without publishing.
-Tag pushes publish only after **every declared target** passes a native full-effect
-build, CTest, package generation, disposable-container installation/CLI smoke tests
-and asset verification. A failed target blocks the release; it is never silently
-omitted or relabelled as compatible.
+PR/main/manual runs build packages as Actions artifacts, without publishing.
+Tag pushes and weekly scheduled runs publish only after **every declared target**
+passes a native full-effect build, CTest, package generation, disposable-container
+installation/CLI smoke tests and asset verification, plus the reusable portable
+CI workflow. A failed target blocks the release; it is never silently omitted or
+relabelled as compatible.
+
+### Weekly SDK rebuilds
+
+Every Monday at 08:17 UTC, the default-branch schedule installs the newest SDK
+available in each configured distribution. Source builds accept stable patches
+on KWin 6.7.x/6.8.x; new minor branches and prereleases fail closed. A distribution
+that still ships 6.7.x is not forcibly upgraded to upstream's newest branch.
+
+The read-only metadata job prepares the next project patch version, greater than
+the current version and any existing tag on that release line. It updates CMake,
+all four plugin versions and the changelog, incorporating `Unreleased` notes.
+Every portable/native job applies this same source patch before building/testing.
+No version commit or tag is pushed on test failure.
+
+After all CI gates, signing and final asset verification succeed, the only
+write-enabled job atomically pushes the prepared commit to the default branch and
+creates its annotated tag, then publishes the tested assets. It refuses to
+overwrite a changed default branch or an existing tag with different source.
+If GitHub publication fails after that push, rerunning the same workflow can reuse
+the identical tag/snapshot; it never moves a tag. Each successful weekly run
+creates a new project patch release, even if the SDK versions are unchanged.
+
+For a hosted dry run, manually dispatch **Native packages and releases** with
+`rebuild-snapshot` enabled. It prepares the same version patch and runs portable
+CI and the native matrix, but cannot push a commit/tag or publish a release.
+
+Repository rules must allow the release job's `GITHUB_TOKEN` to push this
+commit/tag. If branch protection forbids it, the workflow fails rather than
+bypassing the rules. `contents: write` and signing secrets are confined to the
+publishing job; ordinary PR and manual runs cannot publish. Pushes made with
+`GITHUB_TOKEN` do not trigger another release workflow: the same source snapshot
+has already passed the reusable CI and native matrix in this run.
+
+### Manual source releases
 
 1. Update CMake and all four plugin metadata versions together.
 2. Add a nonempty `## <version>` section to `CHANGELOG.md`.
@@ -29,15 +64,17 @@ omitted or relabelled as compatible.
 
 5. Review the generated notes, commit changes, then push the matching tag.
 
-For a rebuild after a distribution SDK update, bump the project/plugin patch
-version and changelog before publishing a new tag. Reusing an existing tag or
-native package version would make package-manager upgrades ambiguous.
+For a manual rebuild after a distribution SDK update, bump the project/plugin
+patch version and changelog before publishing a new tag. Scheduled builds do this
+automatically; fetch their version commits/tags before selecting a manual version.
+Reusing an existing tag or native package version would make upgrades ambiguous.
 
 The release job verifies the tag and publishes the **same tested artifacts**, their
 checksums and manifests, with write permission limited to the publishing job.
 RPM signing changes the package header, not the tested binary payload; final
 checksums/manifests are refreshed after signing and checked again before publishing.
-There are no release credentials in build jobs and no automatic commits/tags.
+There are no release credentials in build jobs; scheduled commits/tags are created
+only after the release gates pass.
 
 ## Signing and publication
 
@@ -48,7 +85,7 @@ The CI key must support unattended signing without a passphrase prompt. Keep its
 private bytes out of the checkout; publish the public fingerprint in release/setup
 documentation. Publishing fails closed if the secret/variable is missing or signing
 fails. The public key is exported into the release; private material is imported
-only into a temporary keyring in the tag-only publishing job.
+only into a temporary keyring in the CI-gated publishing job.
 
 Checksums alone detect corruption, not publisher identity. A signed COPR/OBS/apt
 repository remains a future improvement for easier, authenticated automatic updates.

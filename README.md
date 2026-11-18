@@ -36,8 +36,10 @@ https://github.com/user-attachments/assets/d03c1b94-9a10-4f06-80bf-0e6660e9ea62
 - Only **Fedora Asahi with KWin 6.8.2** has been tested on real hardware so far, but other KDE-based systems should be compatible too.
 - This is not a “Get New Effects” download. You'll need to download a package built specifically
   for your system, or build one yourself. See [compatibility](docs/COMPATIBILITY.md).
-- KWin 6.8.3 is source-reviewed and build-tested; this is not a claim of live
-  desktop validation. Binaries still require their exact build-time KWin version.
+- Source builds accept KWin **6.7.x and 6.8.x** patch releases. Weekly CI tests the
+  newest SDKs available in each target distribution and publishes a new patch
+  release only when all release checks pass. Binaries still require their exact
+  build-time KWin version; successful CI is not live desktop validation.
 
 ## Get started
 

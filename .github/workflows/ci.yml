@@ -1,7 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Matt Hetherington
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: Portable core and tools
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      source-patch:
+        description: Prepared scheduled-release patch artifact from this workflow run
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -14,6 +23,14 @@ jobs:
         widgets: ["ON", "OFF"]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.source-patch != ''
+        with:
+          name: ${{ inputs.source-patch }}
+          path: ${{ runner.temp }}/release-source
+      - name: Apply the prepared release snapshot
+        if: inputs.source-patch != ''
+        run: git apply --check "$RUNNER_TEMP/release-source/scheduled-release.patch" && git apply "$RUNNER_TEMP/release-source/scheduled-release.patch"
       - name: Build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ clang libgl1-mesa-dev fonts-dejavu-core
       - uses: jurplel/install-qt-action@v4
@@ -53,9 +70,17 @@ jobs:
             apt-get update
             apt-get install -y git cmake ninja-build g++ qt6-base-dev libgl1-mesa-dev python3 fonts-dejavu-core
           else
-            dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel mesa-libGL-devel python3 dejavu-sans-fonts
+            dnf --refresh install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel mesa-libGL-devel python3 dejavu-sans-fonts
           fi
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.source-patch != ''
+        with:
+          name: ${{ inputs.source-patch }}
+          path: ${{ runner.temp }}/release-source
+      - name: Apply the prepared release snapshot
+        if: inputs.source-patch != ''
+        run: git apply --check "$RUNNER_TEMP/release-source/scheduled-release.patch" && git apply "$RUNNER_TEMP/release-source/scheduled-release.patch"
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_KWIN_EFFECT=OFF
       - run: cmake --build build --parallel 2
       - run: ctest --test-dir build --output-on-failure
@@ -74,12 +99,20 @@ jobs:
     steps:
       - name: Matching distribution SDK
         run: >-
-          dnf install -y git cmake ninja-build gcc-c++ python3
+          dnf --refresh install -y git cmake ninja-build gcc-c++ python3
           kwin-devel qt6-qtbase-devel qt6-qtdeclarative-devel extra-cmake-modules
           kf6-kcmutils-devel kf6-kcoreaddons-devel libepoxy-devel libdrm-devel dejavu-sans-fonts
           vulkan-loader-devel wayland-devel libxkbcommon-devel
       - uses: actions/checkout@v4
-      # Fail on an unreviewed SDK update; never widen the ABI policy automatically.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: inputs.source-patch != ''
+        with:
+          name: ${{ inputs.source-patch }}
+          path: ${{ runner.temp }}/release-source
+      - name: Apply the prepared release snapshot
+        if: inputs.source-patch != ''
+        run: git apply --check "$RUNNER_TEMP/release-source/scheduled-release.patch" && git apply "$RUNNER_TEMP/release-source/scheduled-release.patch"
+      # Accept patches only on supported source branches; keep exact binary guards.
       # Exercise both Debian/Ubuntu and Fedora-style shared-library mode defaults.
       - run: >-
           cmake -S . -B build-effect -G Ninja -DCMAKE_BUILD_TYPE=Debug

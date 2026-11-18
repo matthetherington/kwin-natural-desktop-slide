@@ -7,7 +7,7 @@ Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 
 ## Requirements
 
-- Plasma Wayland with KWin **6.7.0–6.7.6 or 6.8.0–6.8.3**, matching development
+- Plasma Wayland with KWin **6.7.x or 6.8.x**, matching development
   headers and OpenGL rendering. X11 is unsupported. Rebuild against the exact
   runtime's development packages after each KWin update.
 - CMake 3.25+, a C++23 compiler and Make or Ninja. Core/tools code uses C++20;
@@ -15,12 +15,14 @@ Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 - Qt 6.5+ development packages (Core, DBus, Quick and Widgets), Extra CMake
   Modules 6.26+, and KDE Frameworks 6.26+ CoreAddons and KCMUtils development packages.
   The KWin SDK may require newer versions.
-- Python 3 for install/session helpers; administrator access for plugin installation.
+- Python 3 for install/session helpers, Git for release-automation tests, and
+  administrator access for plugin installation.
 - A libinput/KWin-compatible touchpad for live gestures.
 
 See [distribution dependency examples](PORTABILITY.md#distribution-dependencies).
 Native builds/tests pass on KWin 6.7.4, 6.7.5, 6.8.2 and 6.8.3; only 6.8.2 is
-live-validated. Other allowed versions are source-reviewed only. See
+live-validated. Source-reviewed versions are listed separately; newer patches
+on these branches are accepted with warnings, not automatically marked tested. See
 [private ABI notes](UPSTREAM.md) and [validation coverage](PLAN.md).
 
 ## Build and test

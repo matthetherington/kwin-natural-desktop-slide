@@ -79,6 +79,12 @@ Native build/test coverage includes Debian sid 6.7.4, Ubuntu 26.10 6.7.5 and
 Fedora 45 6.8.2/6.8.3 SDKs on ARM64. Only 6.8.2 is live-validated. The installer and plugin support
 checks require the exact runtime version used to build each binary.
 
+`sourceBuildBranches` separately allows source builds on **6.7.x and 6.8.x**.
+New patch releases produce a warning until individually reviewed; accepting a
+source build does not add it to the source-review, compile-test or runtime-test
+history above. New minor branches and prereleases are rejected. Scheduled CI
+rebuilds against each distribution's latest SDK and retains exact binary guards.
+
 The 6.7 port uses the installed callback return type: legacy `void` paints are
 treated as successful; 6.8 `bool` failures still propagate. Feature detection
 handles the missing 6.7 autoscroll field and enum-based output-configuration
@@ -115,8 +121,9 @@ with v6.8.3 (`3e528155d822d41285a509d09751a88fa956267f`) using the
 
 This review extends `sourceBuildVersions`, not `runtimeTestedVersions`.
 Private layout/symbol changes still require a native rebuild and an exact runtime
-match. Fedora/Arch SDK updates must continue to fail closed for future unreviewed
-versions; do not disable the CMake guard to keep CI green.
+match. The original exact source allowlist blocked this SDK update; source policy
+now accepts patches on supported branches with warnings, while new minor branches
+and all binary/runtime mismatches continue to fail closed.
 
 Fedora's
 [`kwin-6.8.3-1.fc45.src.rpm`](https://kojipkgs.fedoraproject.org/packages/kwin/6.8.3/1.fc45/src/kwin-6.8.3-1.fc45.src.rpm)

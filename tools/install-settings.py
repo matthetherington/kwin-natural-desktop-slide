@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from kwin_version_policy import source_version_supported
 
 
 def atomic_write(destination, data, mode=0o755):
@@ -67,9 +68,6 @@ ROLE_NAMES = {
     "configurator": r"natural-desktop-slide-config",
     "launcher": r"natural-desktop-slide\.desktop",
 }
-SUPPORTED_KWIN_VERSIONS = json.loads((Path(__file__).resolve().parents[1] / "effect/compat/kwin-versions.json").read_text())["sourceBuildVersions"]
-
-
 def build_layout(build_dir, config=None):
     layouts = sorted(Path(build_dir).glob("install-layout-*.json"))
     if config is not None:
@@ -79,7 +77,7 @@ def build_layout(build_dir, config=None):
     layout = json.loads(layouts[0].read_text())
     if layout.get("integrationDriver", False):
         raise RuntimeError("Integration-driver builds must not be installed; use them only in an isolated nested KWin.")
-    if layout.get("schemaVersion") != 1 or layout.get("kwinVersion") not in SUPPORTED_KWIN_VERSIONS:
+    if layout.get("schemaVersion") != 1 or not source_version_supported(layout.get("kwinVersion")):
         raise RuntimeError("Invalid or unsupported build layout/version; reconfigure with this source tree.")
     return layout
 
@@ -133,7 +131,7 @@ def check_installed_kwin(expected_version=None):
         raise RuntimeError("kwin_wayland is required to verify the installed version (no RPM dependency).")
     output = subprocess.check_output([executable, "--version"], text=True, timeout=15)
     match = re.fullmatch(r"kwin\s+(\d+\.\d+\.\d+)\s*", output.strip())
-    if (not match or match[1] not in SUPPORTED_KWIN_VERSIONS
+    if (not match or not source_version_supported(match[1])
             or (expected_version is not None and match[1] != expected_version)):
         raise RuntimeError("This build is pinned to its exact KWin version"
                            + (" (" + expected_version + ")" if expected_version else "")

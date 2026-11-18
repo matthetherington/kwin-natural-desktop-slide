@@ -5,9 +5,11 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 spec = importlib.util.spec_from_file_location(
     "install_settings", Path(__file__).resolve().parents[1] / "tools/install-settings.py"
 )
@@ -205,7 +207,7 @@ class SettingsInstallTest(unittest.TestCase):
 
     def test_wrong_or_missing_kwin_version_is_refused(self):
         with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
-            for output in ("kwin 6.8.4", "kwin 6.9.0", "kwin 6.6.0", "unrecognised", "kwin 6.8.2.1"):
+            for output in ("kwin 6.9.0", "kwin 6.6.0", "unrecognised", "kwin 6.8.2.1", "kwin 6.8.4-rc1"):
                 with patch.object(module.subprocess, "check_output", return_value=output):
                     with self.assertRaisesRegex(RuntimeError, "pinned"):
                         module.check_installed_kwin()
@@ -213,9 +215,9 @@ class SettingsInstallTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "required"):
                 module.check_installed_kwin()
 
-    def test_reviewed_versions_still_require_exact_build_match(self):
+    def test_supported_source_branches_still_require_exact_build_match(self):
         with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
-            for version in module.SUPPORTED_KWIN_VERSIONS:
+            for version in ("6.7.0", "6.8.2", "6.8.3", "6.7.99", "6.8.99"):
                 with patch.object(module.subprocess, "check_output", return_value="kwin " + version):
                     module.check_installed_kwin(version)
                     with self.assertRaisesRegex(RuntimeError, "exact KWin"):
@@ -235,7 +237,10 @@ class SettingsInstallTest(unittest.TestCase):
                         module.check_installed_kwin(runtime)
                         with self.assertRaisesRegex(RuntimeError, "exact KWin"):
                             module.check_installed_kwin(build)
-            for version in ("6.8.4", "6.9.0"):
+            layout["kwinVersion"] = "6.8.99"
+            path.write_text(json.dumps(layout))
+            self.assertEqual(module.build_layout(root)["kwinVersion"], "6.8.99")
+            for version in ("6.9.0", "6.6.99", "6.8.4-rc1"):
                 layout["kwinVersion"] = version
                 path.write_text(json.dumps(layout))
                 with self.subTest(version=version), self.assertRaisesRegex(RuntimeError, "unsupported"):
