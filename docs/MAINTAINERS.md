@@ -21,10 +21,10 @@ omitted or relabelled as compatible.
 2. Add a nonempty `## <version>` section to `CHANGELOG.md`.
 3. Run tests and inspect native CI artifacts/dependencies.
 4. Run the tag-only metadata check locally before committing and tagging (replace
-   `v0.1.1` with the intended release tag):
+   `v0.1.2` with the intended release tag):
 
    ```sh
-   python3 tools/prepare-release.py --tag v0.1.1 --output build/release-notes.md
+   python3 tools/prepare-release.py --tag v0.1.2 --output build/release-notes.md
    ```
 
 5. Review the generated notes, commit changes, then push the matching tag.

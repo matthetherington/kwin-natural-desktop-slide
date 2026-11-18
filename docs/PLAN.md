@@ -78,8 +78,9 @@ See [isolated integration tests](DEVELOPMENT.md#isolated-multi-output-integratio
 
 ### Packaging and version review
 
-Release 0.1.1 synchronizes the CMake and four plugin versions with its changelog;
-the maintainer checklist includes a local run of the tag-only metadata gate.
+Release 0.1.2 prepares native package rebuilds for KWin 6.8.3, synchronizing the
+CMake and four plugin versions with its changelog. The tag-only metadata gate is
+run locally before tagging; publication still requires all native CI targets.
 
 ARM64 Debian/Ubuntu and Fedora packages have container-only installation and CLI
 smoke-test coverage. RPM signing and final asset verification have fixture-key

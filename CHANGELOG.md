@@ -1,9 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
-- Review KWin 6.8.3 for source builds after Fedora/Arch SDK updates blocked CI;
-  retain exact build/runtime matching and reject unreviewed versions.
+- Support source builds and native package rebuilds against reviewed KWin 6.8.3,
+  fixing the Fedora/Arch SDK update that blocked CI.
+- Retain exact build/runtime matching and reject unreviewed versions, with
+  regression tests preventing interchangeable use of 6.8.2/6.8.3 binaries.
+- Validate full-effect builds, tests and RPM generation on Fedora 45 ARM64 with
+  KWin 6.8.3. Physical desktop validation remains limited to KWin 6.8.2.
 
 ## 0.1.1
 
