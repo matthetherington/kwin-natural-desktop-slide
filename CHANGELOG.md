@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Review KWin 6.8.3 for source builds after Fedora/Arch SDK updates blocked CI;
+  retain exact build/runtime matching and reject unreviewed versions.
+
 ## 0.1.1
 
 - Fix source-installed login startup when stock Slide is disabled and a valid

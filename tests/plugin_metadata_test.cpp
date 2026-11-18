@@ -16,8 +16,11 @@ private Q_SLOTS:
         const auto previous = QCoreApplication::applicationVersion();
         QCoreApplication::setApplicationVersion(QStringLiteral(NDS_KWIN_BUILD_VERSION));
         QVERIFY(NaturalSwipe::runtimeMatchesBuild());
-        QCoreApplication::setApplicationVersion("6.99.0");
-        QVERIFY(!NaturalSwipe::runtimeMatchesBuild());
+        for (const auto &version : {QString("6.8.2"), QString("6.8.3"), QString("6.8.4"),
+                                   QString("6.99.0"), QString()}) {
+            QCoreApplication::setApplicationVersion(version);
+            QCOMPARE(NaturalSwipe::runtimeMatchesBuild(), version == QStringLiteral(NDS_KWIN_BUILD_VERSION));
+        }
         QCoreApplication::setApplicationVersion(previous);
     }
     void metadataOnly()

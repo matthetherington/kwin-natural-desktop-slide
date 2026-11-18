@@ -21,8 +21,8 @@ before downloading. Do not force an incompatible package to install.
 | Level of testing | Current coverage |
 | --- | --- |
 | Real desktop | Fedora Asahi, aarch64, KWin 6.8.2 Wayland only. |
-| Native builds and automated tests | KWin 6.7.4, 6.7.5 and 6.8.2 on ARM64. This does not establish live desktop support on every system. |
-| Source review | KWin 6.7.0–6.7.6 and 6.8.0–6.8.2. Other versions are rejected; review alone is not a successful build or desktop test. |
+| Native builds and automated tests | KWin 6.7.4, 6.7.5, 6.8.2 and 6.8.3 on ARM64. This does not establish live desktop support on every system. |
+| Source review | KWin 6.7.0–6.7.6 and 6.8.0–6.8.3. Other versions are rejected; review alone is not a successful build or desktop test. |
 | Multiple screens | Two/three virtual screens, including shared and independent desktops. Physical multi-monitor testing remains outstanding. |
 
 Release build targets also include x86_64 and other distributions. A target is

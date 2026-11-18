@@ -520,7 +520,7 @@ private:
         const auto manager = VirtualDesktopManager::self();
         if (frame.preview && m_start && m_output) {
             m_previewSent = true;
-            // Internal KWin bridge, reviewed for 6.7.0–6.7.6 and 6.8.0–6.8.2.
+            // Internal KWin bridge, reviewed for 6.7.0–6.7.6 and 6.8.0–6.8.3.
             // We own offsets ourselves;
             // do not invoke native gestureReleasedX or mutate its private state.
             for (const auto &output : m_targets) {

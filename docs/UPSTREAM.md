@@ -73,10 +73,10 @@ Painting is scoped to the current output; shared previews fan out to all outputs
 independent returns are scoped, and topology changes cancel gesture context.
 
 `effect/compat/kwin-versions.json` centralizes reviewed source versions
-**6.7.0–6.7.6 and 6.8.0–6.8.2**. Upstream 6.8 effect, output, render, input and desktop headers
+**6.7.0–6.7.6 and 6.8.0–6.8.3**. Upstream 6.8.0–6.8.2 effect, output, render, input and desktop headers
 used here were compared: only unused Workspace scripting additions differ.
 Native build/test coverage includes Debian sid 6.7.4, Ubuntu 26.10 6.7.5 and
-Fedora 45 6.8.2 SDKs on ARM64. Only 6.8.2 is live-validated. The installer and plugin support
+Fedora 45 6.8.2/6.8.3 SDKs on ARM64. Only 6.8.2 is live-validated. The installer and plugin support
 checks require the exact runtime version used to build each binary.
 
 The 6.7 port uses the installed callback return type: legacy `void` paints are
@@ -93,6 +93,43 @@ between 6.7 and 6.8, but are not used by production code here.
 KWin 6.6 and earlier remain rejected: their desktop signals and geometry APIs
 need a larger separate port. Header review and synthetic tests do not establish
 that an untested patch release builds or that a compiled 6.7 plugin works in a live desktop.
+
+### KWin 6.8.3 source review (2026-11-18)
+
+Compared upstream v6.8.2 (`f130ab33c8e6f3b9d728aade87836086ae9a8ed4`)
+with v6.8.3 (`3e528155d822d41285a509d09751a88fa956267f`) using the
+[KDE mirror diff](https://github.com/KDE/kwin/compare/f130ab33c8e6f3b9d728aade87836086ae9a8ed4...3e528155d822d41285a509d09751a88fa956267f).
+
+- Slide and SpringMotion are unchanged, as are the effect/handler/window/timeline,
+  render target/viewport, input device/filter/spy/events, virtual desktop, window
+  and GL shader/vertex-buffer interfaces used by this project.
+- `core/output.h` adds an unused interlaced argument to `CvtModeline::generate`;
+  `core/rect.h` adds Qt edge properties without changing the geometry operations.
+- `Workspace` adds private sleep/DPMS state; its desktop and output interfaces used
+  by the controller are unchanged. The input implementation change affects
+  interactive mouse move/resize, not gesture dispatch.
+- Scene/item frame callbacks and scene storage change, but this project neither
+  subclasses those classes nor calls the changed methods. Other changes include
+  internal frame scheduling, colour conversion, scanout and buffer-import fixes;
+  no source adapter changes are required.
+
+This review extends `sourceBuildVersions`, not `runtimeTestedVersions`.
+Private layout/symbol changes still require a native rebuild and an exact runtime
+match. Fedora/Arch SDK updates must continue to fail closed for future unreviewed
+versions; do not disable the CMake guard to keep CI green.
+
+Fedora's
+[`kwin-6.8.3-1.fc45.src.rpm`](https://kojipkgs.fedoraproject.org/packages/kwin/6.8.3/1.fc45/src/kwin-6.8.3-1.fc45.src.rpm)
+was also inspected: its spec applies no downstream patches. The earlier Fedora
+6.8.2 scanout fix is now included upstream.
+
+Native Fedora 45 ARM64 validation with `kwin`/`kwin-devel-6.8.3-1.fc45` passed
+27 Debug full-effect tests with each `CMAKE_INSTALL_SO_NO_EXE` setting, then
+28 Release/package tests and exact-runtime-pinned RPM generation. This adds
+6.8.3 to `compileTestedVersions` only; no plugins were installed or activated,
+and no 6.8.3 live compositor or x86_64/Arch testing was performed locally.
+
+## Remaining private dependencies
 
 Private dependencies remain: input filters/events, workspace and virtual desktop
 control, rendering internals, and `window.h` resource-class access. The public

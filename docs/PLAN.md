@@ -40,7 +40,7 @@ cross-system lifecycle or hardware support.
 
 ### Native builds and standalone tests
 
-Native ARM64 SDK builds and automated tests cover Fedora 45 / KWin 6.8.2,
+Native ARM64 SDK builds and automated tests cover Fedora 45 / KWin 6.8.2/6.8.3,
 Debian sid / KWin 6.7.4 and Ubuntu 26.10 / KWin 6.7.5. Standalone core, UI and
 tool tests also run without compiling or loading compositor plugins, including
 Debian 13 / Qt 6.8.2 with GCC 14 and Clang 19.
@@ -89,10 +89,19 @@ published assets exist or that all hosted CI targets pass. Consult
 [GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases)
 for available downloads and their per-asset manifests.
 
-The reviewed source-version range is **KWin 6.7.0–6.7.6 and 6.8.0–6.8.2**.
+The reviewed source-version range is **KWin 6.7.0–6.7.6 and 6.8.0–6.8.3**.
 Versions without native build or desktop testing remain source-reviewed only.
 Every binary requires its exact build-time KWin runtime; distribution patches
 can require additional review. See [upstream dependencies](UPSTREAM.md).
+
+The November 18 CI failures were the expected fail-closed rejection of Fedora
+and Arch's KWin 6.8.3 SDK update. Source review now admits that patch release
+without allowing future versions automatically. Installer and plugin regressions
+check that 6.8.2 and 6.8.3 binaries cannot be used interchangeably.
+Validation on Fedora 45 ARM64 with `kwin-devel-6.8.3-1.fc45` passed 27 full-effect
+tests with each `CMAKE_INSTALL_SO_NO_EXE` setting and 28 Release/package tests,
+then generated an exact-runtime-pinned RPM in a disposable container. No 6.8.3
+plugins were installed or activated, and x86_64/Arch reruns remain hosted CI work.
 
 ## Remaining validation and work
 

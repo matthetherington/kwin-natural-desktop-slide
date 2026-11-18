@@ -7,7 +7,7 @@ Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 
 ## Requirements
 
-- Plasma Wayland with KWin **6.7.0–6.7.6 or 6.8.0–6.8.2**, matching development
+- Plasma Wayland with KWin **6.7.0–6.7.6 or 6.8.0–6.8.3**, matching development
   headers and OpenGL rendering. X11 is unsupported. Rebuild against the exact
   runtime's development packages after each KWin update.
 - CMake 3.25+, a C++23 compiler and Make or Ninja. Core/tools code uses C++20;
@@ -19,7 +19,7 @@ Release engineering is documented in [MAINTAINERS.md](MAINTAINERS.md).
 - A libinput/KWin-compatible touchpad for live gestures.
 
 See [distribution dependency examples](PORTABILITY.md#distribution-dependencies).
-Native builds/tests pass on KWin 6.7.4, 6.7.5 and 6.8.2; only 6.8.2 is
+Native builds/tests pass on KWin 6.7.4, 6.7.5, 6.8.2 and 6.8.3; only 6.8.2 is
 live-validated. Other allowed versions are source-reviewed only. See
 [private ABI notes](UPSTREAM.md) and [validation coverage](PLAN.md).
 

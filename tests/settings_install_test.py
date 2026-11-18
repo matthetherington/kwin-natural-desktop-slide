@@ -205,7 +205,7 @@ class SettingsInstallTest(unittest.TestCase):
 
     def test_wrong_or_missing_kwin_version_is_refused(self):
         with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
-            for output in ("kwin 6.8.3", "kwin 6.6.0", "unrecognised", "kwin 6.8.2.1"):
+            for output in ("kwin 6.8.4", "kwin 6.9.0", "kwin 6.6.0", "unrecognised", "kwin 6.8.2.1"):
                 with patch.object(module.subprocess, "check_output", return_value=output):
                     with self.assertRaisesRegex(RuntimeError, "pinned"):
                         module.check_installed_kwin()
@@ -220,6 +220,26 @@ class SettingsInstallTest(unittest.TestCase):
                     module.check_installed_kwin(version)
                     with self.assertRaisesRegex(RuntimeError, "exact KWin"):
                         module.check_installed_kwin("6.99.0")
+
+    def test_kwin_683_layout_is_reviewed_but_not_cross_version_compatible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, layout = self.make_layout(root)
+            layout["kwinVersion"] = "6.8.3"
+            path.write_text(json.dumps(layout))
+            self.assertEqual(module.build_layout(root)["kwinVersion"], "6.8.3")
+            with patch.object(module.shutil, "which", return_value="/tools/kwin_wayland"):
+                for runtime, build in (("6.8.3", "6.8.2"), ("6.8.2", "6.8.3")):
+                    with self.subTest(runtime=runtime, build=build), \
+                         patch.object(module.subprocess, "check_output", return_value="kwin " + runtime):
+                        module.check_installed_kwin(runtime)
+                        with self.assertRaisesRegex(RuntimeError, "exact KWin"):
+                            module.check_installed_kwin(build)
+            for version in ("6.8.4", "6.9.0"):
+                layout["kwinVersion"] = version
+                path.write_text(json.dumps(layout))
+                with self.subTest(version=version), self.assertRaisesRegex(RuntimeError, "unsupported"):
+                    module.build_layout(root)
 
     def test_dry_run_does_not_write_and_staging_does_not_need_kwin(self):
         with tempfile.TemporaryDirectory() as directory:

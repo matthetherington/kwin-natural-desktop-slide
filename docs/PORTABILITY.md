@@ -22,8 +22,9 @@ Standalone core/UI/tools validation includes Debian 13 ARM64 containers with
 Qt 6.8.2, GCC 14 and Clang 19. These tests do not load the effect or access the
 host compositor/session.
 
-KWin source-reviewed ports: **6.7.0–6.7.6 and 6.8.0–6.8.2**. Native ARM64 SDK
-build/test coverage includes Debian sid 6.7.4, Ubuntu 26.10 6.7.5 and Fedora 45 6.8.2.
+KWin source-reviewed ports: **6.7.0–6.7.6 and 6.8.0–6.8.3**. Native ARM64 SDK
+build/test coverage includes Debian sid 6.7.4, Ubuntu 26.10 6.7.5 and Fedora 45
+6.8.2/6.8.3.
 Only 6.8.2 is live-validated. KWin 6.6 and earlier are not yet
 ported. An older distribution needs a supported Plasma/KWin repository, not a
 forced version override. Install matching development packages and rebuild after
