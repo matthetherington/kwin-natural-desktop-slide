@@ -1,15 +1,8 @@
 # KWin Natural Desktop Slide
 
-Switch between KDE Plasma desktops with a three-finger touchpad swipe. The
-animation follows your fingers, and you choose which panels slide with your
-desktop and which stay in place.
+Bring the feel of macOS desktop switching to KDE Plasma. Swipe with three fingers on your touchpad and your desktops move according to the speed of your hand. Swipe past the first or last desktop, and they spring back into place.
 
-It brings macOS (OS X)-like desktop switching to KDE Plasma, with touchpad
-behaviour close to native Mac swipes: direct finger tracking, quick flicks and
-spring-back overscroll at the desktop edges.
-
-You can also customise the animation speed and the background shown when you
-swipe past the last desktop. Panels keep the same contents on every desktop.
+You can choose which panels slide with your desktops and which stay put, adjust the spring-back speed, and customise the background revealed when you swipe past the last desktop.
 
 ## Video Demos
 
@@ -29,60 +22,58 @@ https://github.com/user-attachments/assets/869a9d0c-5855-4cd0-b5fd-7f677eb1785a
 
 https://github.com/user-attachments/assets/d03c1b94-9a10-4f06-80bf-0e6660e9ea62
 
-**This is experimental software:** broad hardware and software compatibility has not been verified.
+## Requirements
 
-- Requires **KDE Plasma on Wayland**, a compatible KWin version and a touchpad
-  with three-finger gesture support. KWin is the part of KDE that draws your desktop. Apple hardware is not required, but other systems still need testing.
-- Only **Fedora Asahi with KWin 6.8.2** has been tested on real hardware so far, but other KDE-based systems should be compatible too.
-- This is not a “Get New Effects” download. You'll need to download a package built specifically
-  for your system, or build one yourself. See [compatibility](docs/COMPATIBILITY.md).
-- Source builds accept KWin **6.7.x and 6.8.x** patch releases. Weekly CI tests the
-  newest SDKs available in each target distribution and publishes a new patch
-  release only when all release checks pass. Binaries still require their exact
-  build-time KWin version; successful CI is not live desktop validation.
+- **KDE Plasma on Wayland** with OpenGL desktop rendering.
+- A touchpad that supports three-finger swipes. Apple hardware is not required.
+- A package that matches your distribution release, CPU architecture and exact
+  KWin package version. This effect isn't available through “Get New Effects.”
+
+**Experimental:** Only Fedora Asahi with KWin 6.8.2 has been tested on real
+hardware. Source builds target KWin 6.7.x and 6.8.x. See [compatibility and known
+limitations](docs/COMPATIBILITY.md).
 
 ## Get started
 
-1. Follow the [installation guide](docs/BINARY_PACKAGES.md) to find and install a
-   matching package from [GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases).
-   Packages are only available after their release checks pass. If there is no
-   match for your system, do not install a different one.
-2. Open **Natural Desktop Slide Settings** from your application menu. On KWin 6.8,
-   you can also open the same editor through **System Settings → Animations →
-   virtual-desktop switching → Natural Desktop Slide (Experimental) → configuration**.
-   Choose which panels should slide, then save. See the [settings guide](docs/CONFIGURATION.md)
-    for help with the controls and larger-text layouts. **Reload saved settings**
-    discards unsaved gesture edits after confirmation.
-   If the effect is already running, choose **Apply saved settings** after saving.
-3. Save your work, open **Konsole** (KDE's terminal), and run:
+1. Follow the [installation guide](docs/BINARY_PACKAGES.md) to install a matching
+   package from [GitHub Releases](https://github.com/matthetherington/kwin-natural-desktop-slide/releases).
+   If there's no match, wait for one or follow the [source build guide](docs/DEVELOPMENT.md).
+   Installing the package doesn't activate the effect.
+2. To choose which panels slide, open **Natural Desktop Slide Settings** from
+   your application menu and save your choices. Panels stay fixed by default.
+   See the [settings guide](docs/CONFIGURATION.md) for more options.
+3. Save your work first: a crash can end your desktop session. Run the commands
+   below in **Konsole** (KDE's terminal) as your desktop user, without `sudo`.
+   Use the helper to switch effects; don't enable both effects in System Settings.
 
-   ```sh
-   natural-desktop-slide-session start
-   ```
-
-Try a horizontal three-finger swipe. To turn it off and restore your previous setup:
+### Try it for this session only
 
 ```sh
-natural-desktop-slide-session stop
+natural-desktop-slide-session start
 ```
 
-Installing the package does not turn it on or restart your desktop. KDE's original
-Slide effect is kept. For automatic startup, updates or removal, follow the
-[installation guide](docs/BINARY_PACKAGES.md).
-Source and package installs use the same file permissions: plugins and menu
-launchers are non-executable; the settings application remains executable.
+Try a horizontal three-finger swipe. Run `natural-desktop-slide-session stop`
+to end the trial and restore your previous setup.
+
+### Enable or disable login startup
+
+Login startup requires a systemd user session. Stop any session-only trial first,
+then run this to enable the effect now and at future Plasma Wayland logins:
+
+```sh
+natural-desktop-slide-session enable
+```
+
+Run `natural-desktop-slide-session disable` to turn it off, restore your previous
+setup and disable login startup.
 
 ## Help and more information
 
-- [Changelog and release notes](CHANGELOG.md)
-- [Settings and panel selection](docs/CONFIGURATION.md)
-- [How swipes work](docs/GESTURES.md)
-- [Compatibility and known limitations](docs/COMPATIBILITY.md)
-- [Feature scope and validation coverage](docs/PLAN.md)
 - [Startup and recovery](docs/STARTUP.md)
-- Source-installed login services can resume pinned plugins without loading stock
-  Slide first when a valid saved recovery baseline is available.
-- [All documentation](docs/README.md), including source builds and contributor guides
+- [Updating or removing the package](docs/BINARY_PACKAGES.md#upgrade-or-remove)
+- [How swipes work](docs/GESTURES.md)
+- [Changelog and release notes](CHANGELOG.md)
+- [All documentation](docs/README.md)
 - [Report a problem](https://github.com/matthetherington/kwin-natural-desktop-slide/issues)
 
 Copyright © 2026 Matt Hetherington. Licensed under [GPL-2.0-or-later](LICENSE),
