@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.3
 
 - Allow source builds on KWin 6.7.x and 6.8.x patch releases, warning when a patch
   has not been individually reviewed. Keep exact build/runtime binary matching.
@@ -8,6 +8,9 @@
   after portable CI, the entire native package matrix and signing checks pass.
 - Prepare one version-bumped source snapshot for every release test. Push its
   commit/tag only after validation, without overwriting a newer default branch.
+
+- Automated native package rebuild against the latest distribution SDKs on supported KWin source branches.
+- Binaries still require their exact build-time KWin package; CI checks are not physical desktop validation.
 
 ## 0.1.2
 
